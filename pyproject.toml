@@ -1,0 +1,18 @@
+[project]
+name = "vt-error-feed"
+version = "0.1.0"
+description = "Default template for PDM package"
+authors = [
+    {name = "", email = ""},
+]
+dependencies = ["fastapi>=0.124.0", "uvicorn[standard]>=0.38.0", "httpx>=0.28.1", "python-dotenv>=1.2.1"]
+requires-python = "==3.12.*"
+readme = "README.md"
+license = {text = "MIT"}
+
+
+[tool.pdm]
+distribution = false
+
+[tool.pdm.scripts]
+dev = "uvicorn app.main:app --reload"
