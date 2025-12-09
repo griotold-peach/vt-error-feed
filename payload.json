@@ -1,0 +1,18 @@
+{
+  "type": "MessageCard",
+  "@context": "https://schema.org/extensions",
+  "themeColor": "FF0000",
+  "title": "🚨 테스트 알림",
+  "summary": "웹훅 테스트",
+  "sections": [
+    {
+      "activityTitle": "웹훅 처리중 실패가 발생했습니다.",
+      "facts": [
+        { "name": "Project", "value": "test-project" },
+        { "name": "Error Message", "value": "Something went wrong" },
+        { "name": "Error Detail", "value": "TIMEOUT" },
+        { "name": "Time", "value": "2025-12-09T12:34:56Z" }
+      ]
+    }
+  ]
+}
