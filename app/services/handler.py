@@ -8,24 +8,9 @@ from pydantic import ValidationError
 from .notifier import post_to_forward_channel, post_to_incident_channel
 from .schemas import VTWebhookMessage, VTErrorEvent
 from .anomaly import IncidentType, record_event
+from .rules import FORWARD_FAILURE_REASONS, SPECIAL_FORWARD_KEYWORDS
 
 logger = logging.getLogger(__name__)
-
-# 일반 에러 피드 필터링 (개선사항 1) 용 상수들
-FORWARD_FAILURE_REASONS = {
-    "AUDIO_PIPELINE_FAILED",
-    "VIDEO_PIPELINE_FAILED",
-    "TIMEOUT",
-    "API_ERROR",
-}
-
-# Failure Reason 이 없어도, 메시지 내용에 이 키워드가 들어가면 포워딩
-# (VT5001 / VIDEO_QUEUE_FULL 케이스)
-SPECIAL_FORWARD_KEYWORDS = (
-    "VIDEO_QUEUE_FULL",
-    "VT5001",
-)
-
 
 def should_forward(event: VTErrorEvent) -> bool:
     """
@@ -109,7 +94,6 @@ async def handle_raw_alert(payload: Dict[str, Any]) -> bool:
         ts = event.event_datetime()
         is_incident = record_event(incident_type, ts)
         if is_incident:
-            # TODO: 필요하면 여기서 멘션(@고은님 등) 추가해서 카드 변형 후 전송
             await post_to_incident_channel(payload)
             logger.info(
                 "Sent incident alert to incident channel. type=%s, project=%s",
