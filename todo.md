@@ -50,7 +50,7 @@
 
 ---
 
--## [ ] schemas.py / 파싱 레이어 정리
+## [ ] schemas.py / 파싱 레이어 정리
 - [x] `VTWebhookMessage` / `VTErrorEvent` 역할을 명확히 문서화
   - [x] `VTWebhookMessage`: Teams MessageCard JSON (현재 payload.json 기준)
   - [x] `VTErrorEvent`: 비즈니스 로직에서 사용하는 정제된 도메인 모델

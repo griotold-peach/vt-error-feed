@@ -12,7 +12,7 @@ import logging
 
 import httpx
 
-from .config import TEAMS_FORWARD_WEBHOOK_URL, TEAMS_INCIDENT_WEBHOOK_URL
+from app.config import TEAMS_FORWARD_WEBHOOK_URL, TEAMS_INCIDENT_WEBHOOK_URL
 
 logger = logging.getLogger(__name__)
 

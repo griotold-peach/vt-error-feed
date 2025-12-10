@@ -23,8 +23,11 @@
       - 개선사항 2 (TIMEOUT/API_ERROR 패턴 감지 → incident 채널로 알림)
     - 내부에서 `post_to_forward_channel`, `post_to_incident_channel` 호출
 
-- `app/services/schemas.py`
+- `app/adapters/messagecard.py`
   - Teams MessageCard → `VTWebhookMessage`
+  - sections[].facts[] 기반 DTO (`Fact`, `Section`)
+
+- `app/domain/events.py`
   - `VTErrorEvent` (도메인 모델)
   - `event_datetime()` 으로 Time 문자열을 datetime(UTC)로 변환
 

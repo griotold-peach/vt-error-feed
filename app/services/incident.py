@@ -5,7 +5,7 @@ from typing import Any, Dict
 
 from .anomaly import IncidentType, record_event
 from .notifier import post_to_incident_channel
-from .schemas import VTErrorEvent
+from app.domain.events import VTErrorEvent
 
 logger = logging.getLogger(__name__)
 

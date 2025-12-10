@@ -1,56 +1,17 @@
-# app/services/schemas.py
+# app/domain/events.py
 #
-# TODO: If future "pattern B" bots send text-only payloads, consider adding an adapter layer
-# (e.g., `adapt_raw_payload_to_vt_event(raw: dict | str) -> VTErrorEvent`) that normalizes
-# those payloads into VTWebhookMessage / VTErrorEvent before the handler logic consumes them.
+# TODO: If future "pattern B" bots send text-only payloads, consider wiring an adapter
+# (e.g., `adapt_raw_payload_to_vt_event(raw: dict | str) -> VTErrorEvent`) that converts
+# arbitrary payloads into VTWebhookMessage / VTErrorEvent before business logic consumes them.
 from __future__ import annotations
 
-from typing import List, Optional
-from pydantic import BaseModel, Field
 from datetime import datetime, timezone
+from typing import Optional
 import re
 
+from pydantic import BaseModel
 
-class Fact(BaseModel):
-    """
-    Teams MessageCard 의 sections[].facts[] 한 줄.
-    ex) { "name": "Error Detail", "value": "Failure Reason: ENGINE_ERROR ..." }
-    """
-    name: str
-    value: str
-
-
-class Section(BaseModel):
-    """
-    Teams MessageCard 의 sections[] 하나.
-    우리가 쓰는 건 activityTitle / facts 정도라서 나머지는 생략.
-    """
-    activityTitle: Optional[str] = None
-    facts: List[Fact] = Field(default_factory=list)
-
-
-class VTWebhookMessage(BaseModel):
-    """
-    Teams MessageCard JSON payload used by VT → webhook.
-
-    - sections[].facts[] carries name/value pairs such as "Project", "Error Message",
-      "Error Detail", "Time", "Cause or Stack Trace".
-    - We model only the subset of fields we rely on; Pydantic ignores the rest.
-    """
-    title: Optional[str] = None
-    summary: Optional[str] = None
-    sections: List[Section] = Field(default_factory=list)
-
-    def get_fact(self, name: str) -> Optional[str]:
-        """
-        sections[].facts[] 중에서 name 이 일치하는 value 를 찾아준다.
-        ex) get_fact("Error Detail") -> "Failure Reason: ENGINE_ERROR ..."
-        """
-        for section in self.sections:
-            for fact in section.facts:
-                if fact.name == name:
-                    return fact.value
-        return None
+from app.adapters.messagecard import VTWebhookMessage
 
 
 class VTErrorEvent(BaseModel):
@@ -61,6 +22,7 @@ class VTErrorEvent(BaseModel):
     structured fields instead of raw MessageCards.
     failure_reason / cause_or_stack_trace are optional results of parsing.
     """
+
     project: str
     error_message: str
     error_detail: str
@@ -96,7 +58,7 @@ class VTErrorEvent(BaseModel):
             failure_reason=failure_reason,
             cause_or_stack_trace=cause,
         )
-    
+
     def event_datetime(self) -> datetime:
         """
         Parse the `time` field into a timezone-aware UTC datetime.

@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 
 from .rules import FORWARD_FAILURE_REASONS, SPECIAL_FORWARD_KEYWORDS
-from .schemas import VTErrorEvent
+from app.domain.events import VTErrorEvent
 
 logger = logging.getLogger(__name__)
 
