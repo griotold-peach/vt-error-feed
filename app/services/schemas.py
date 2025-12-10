@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from typing import List, Optional
 from pydantic import BaseModel, Field
+from datetime import datetime, timezone
 import re
 
 
@@ -85,3 +86,31 @@ class VTErrorEvent(BaseModel):
             failure_reason=failure_reason,
             cause_or_stack_trace=cause,
         )
+    
+    def event_datetime(self) -> datetime:
+        """
+        Time 필드를 datetime 으로 파싱해서 돌려준다.
+        VT 쪽 포맷이 '2025-12-09T20:10:51.796441041Z[Etc/UTC]' 이런 식이라면
+        대략 앞부분만 잘라서 써도 된다.
+        """
+        # 예: "2025-12-09T20:10:51.796441041Z[Etc/UTC]"
+        raw = self.time
+        if not raw:
+            return datetime.now(timezone.utc)
+
+        # Z 앞까지만 사용
+        # 2025-12-09T20:10:51.796441041Z[Etc/UTC] -> 2025-12-09T20:10:51.796441
+        try:
+            # 소수점 6자리까지만 자르고 파싱
+            before_z = raw.split("Z", 1)[0]  # "2025-12-09T20:10:51.796441041"
+            if "." in before_z:
+                date_part, frac = before_z.split(".", 1)
+                frac = (frac + "000000")[:6]  # 6자리로 패딩/자르기
+                trimmed = f"{date_part}.{frac}"
+            else:
+                trimmed = before_z
+
+            return datetime.fromisoformat(trimmed)
+        except Exception:
+            # 포맷이 예상과 다르면 일단 현재 시각으로 fallback
+            return datetime.now(timezone.utc)

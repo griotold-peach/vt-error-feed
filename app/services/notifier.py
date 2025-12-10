@@ -1,42 +1,60 @@
-# app/services/notifier.py
 from __future__ import annotations
 
-from typing import Dict, Any
+from typing import Any, Dict
 import logging
 
 import httpx
 
-from .config import TEAMS_WEBHOOK_URL
+from .config import TEAMS_FORWARD_WEBHOOK_URL, TEAMS_INCIDENT_WEBHOOK_URL
 
 logger = logging.getLogger(__name__)
 
 
-async def post_to_teams(card: Dict[str, Any]) -> None:
+async def _post_to_teams(webhook_url: str, card: Dict[str, Any], log_prefix: str) -> None:
     """
-    필터 서버에서 최종으로 Teams 채널로 보내는 함수.
-    card: Teams Incoming Webhook용 MessageCard JSON (원본 그대로 or 변형된 것).
+    내부 공용 함수: 주어진 webhook_url 로 MessageCard 를 전송한다.
     """
-    if not TEAMS_WEBHOOK_URL:
-        logger.error("TEAMS_WEBHOOK_URL is not configured. Skip sending to Teams.")
+    if not webhook_url:
+        logger.error("%s webhook url is not configured. Skip sending.", log_prefix)
         return
 
-    # NOTE: verify=False 는 회사 내부망 / 프록시 환경 때문에 넣어둔 것으로 보임.
-    # 가능하면 나중에 인증서 세팅 완료 후 verify=True 로 변경하는 것이 좋다.
     async with httpx.AsyncClient(timeout=5.0, verify=False) as client:
         try:
-            resp = await client.post(TEAMS_WEBHOOK_URL, json=card)
+            resp = await client.post(webhook_url, json=card)
         except httpx.RequestError as exc:
-            logger.error("Error while sending message to Teams: %s", exc)
+            logger.error("%s request error: %s", log_prefix, exc)
             return
 
     if resp.is_error:
-        # 1차 버전은 logger 로만 확인하고, 필요하면 알림/재시도 로직 추가
         logger.error(
-            "[Teams notify error] status=%s, body=%s",
+            "[%s] status=%s, body=%s",
+            log_prefix,
             resp.status_code,
             resp.text[:200],
         )
-        # 필요하면 여기서 예외를 다시 던질 수도 있음
-        # resp.raise_for_status()
     else:
-        logger.info("Message successfully posted to Teams.")
+        logger.info("%s message successfully posted to Teams.", log_prefix)
+
+
+async def post_to_forward_channel(card: Dict[str, Any]) -> None:
+    """
+    일반 에러/모니터링 채널로 보내는 함수.
+    (개선사항 1에서 사용)
+    """
+    await _post_to_teams(
+        TEAMS_FORWARD_WEBHOOK_URL,
+        card,
+        log_prefix="Teams forward",
+    )
+
+
+async def post_to_incident_channel(card: Dict[str, Any]) -> None:
+    """
+    장애 알림 채널로 보내는 함수.
+    (개선사항 2에서 사용)
+    """
+    await _post_to_teams(
+        TEAMS_INCIDENT_WEBHOOK_URL,
+        card,
+        log_prefix="Teams incident",
+    )
