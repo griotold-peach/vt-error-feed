@@ -37,16 +37,16 @@
 
 ---
 
-## [ ] notifier.py 정리
-- [ ] public API를 명확히 한다
-  - [ ] 외부에서 사용하는 함수: `post_to_forward_channel(card: dict)`, `post_to_incident_channel(card: dict)`
-  - [ ] `_post_to_teams` 는 내부 구현으로 유지
-- [ ] HTTP 클라이언트/에러 처리 정리
-  - [ ] `verify=False` 사용 이유를 주석으로 남기고, 나중에 설정화할 TODO 남기기 (ex. 환경에 따라 TLS 검증 on/off)
-  - [ ] exception/log 메시지에 포함되는 정보(상태코드, body 길이 등) 최소화/정리
-- [ ] 테스트 용이성 고려
-  - [ ] notifier 에 대한 최소 단위 테스트 or 통합테스트 아이디어 메모 (현재는 handler 테스트에서 monkeypatch로 대체)
-  - [ ] 필요 시 httpx 클라이언트를 주입받는 형태(의존성 주입)로 변경 고려 (후순위)
+## [x] notifier.py 정리
+- [x] public API를 명확히 한다
+  - [x] 외부에서 사용하는 함수: `post_to_forward_channel(card: dict)`, `post_to_incident_channel(card: dict)`
+  - [x] `_post_to_teams` 는 내부 구현으로 유지
+- [x] HTTP 클라이언트/에러 처리 정리
+  - [x] `verify=False` 사용 이유를 주석으로 남기고, 나중에 설정화할 TODO 남기기 (ex. 환경에 따라 TLS 검증 on/off)
+  - [x] exception/log 메시지에 포함되는 정보(상태코드, body 길이 등) 최소화/정리
+- [x] 테스트 용이성 고려
+  - [x] notifier 에 대한 최소 단위 테스트 or 통합테스트 아이디어 메모 (현재는 handler 테스트에서 monkeypatch로 대체)
+  - [x] 필요 시 httpx 클라이언트를 주입받는 형태(의존성 주입)로 변경 고려 (후순위)
 
 ---
 

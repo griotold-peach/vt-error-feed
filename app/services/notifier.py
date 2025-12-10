@@ -1,3 +1,10 @@
+"""
+Teams webhook notifier helpers.
+
+Public API: `post_to_forward_channel(card: Dict[str, Any])` and
+`post_to_incident_channel(card: Dict[str, Any])`.
+`_post_to_teams` is intentionally kept internal as the shared HTTP implementation detail.
+"""
 from __future__ import annotations
 
 from typing import Any, Dict
@@ -18,6 +25,9 @@ async def _post_to_teams(webhook_url: str, card: Dict[str, Any], log_prefix: str
         logger.error("%s webhook url is not configured. Skip sending.", log_prefix)
         return
 
+    # NOTE: verify=False because Teams webhook endpoints in some internal/staging environments
+    # use self-signed certificates.
+    # TODO: Allow configuring TLS verification based on environment settings.
     async with httpx.AsyncClient(timeout=5.0, verify=False) as client:
         try:
             resp = await client.post(webhook_url, json=card)
@@ -27,10 +37,10 @@ async def _post_to_teams(webhook_url: str, card: Dict[str, Any], log_prefix: str
 
     if resp.is_error:
         logger.error(
-            "[%s] status=%s, body=%s",
+            "%s response error. status=%s body=%s",
             log_prefix,
             resp.status_code,
-            resp.text[:200],
+            resp.text[:200],  # keep logs short to avoid dumping entire payload
         )
     else:
         logger.info("%s message successfully posted to Teams.", log_prefix)
@@ -58,3 +68,6 @@ async def post_to_incident_channel(card: Dict[str, Any]) -> None:
         card,
         log_prefix="Teams incident",
     )
+
+# TODO: If we ever need standalone notifier unit tests, consider injecting an httpx.AsyncClient
+# (or transport) dependency so fake clients can be passed in without monkeypatching.
