@@ -50,19 +50,19 @@
 
 ---
 
-## [ ] schemas.py / 파싱 레이어 정리
-- [ ] `VTWebhookMessage` / `VTErrorEvent` 역할을 명확히 문서화
-  - [ ] `VTWebhookMessage`: Teams MessageCard JSON (현재 payload.json 기준)
-  - [ ] `VTErrorEvent`: 비즈니스 로직에서 사용하는 정제된 도메인 모델
-- [ ] `event_datetime()` 개선/정리
-  - [ ] docstring 에 실제 예시 포맷 (`2025-12-08T03:40:00.000000000Z[Etc/UTC]`) 명시
-  - [ ] timezone-aware datetime(UTC) 반환 보장 확인
-  - [ ] 잘못된 포맷일 때 fallback 전략을 주석으로 설명
-- [ ] 파싱 어댑터 레이어 준비 (패턴 B 대비)
-  - [ ] 나중에 “봇이 텍스트 기반 payload를 보내는 경우”를 대비해서,  
+-## [ ] schemas.py / 파싱 레이어 정리
+- [x] `VTWebhookMessage` / `VTErrorEvent` 역할을 명확히 문서화
+  - [x] `VTWebhookMessage`: Teams MessageCard JSON (현재 payload.json 기준)
+  - [x] `VTErrorEvent`: 비즈니스 로직에서 사용하는 정제된 도메인 모델
+- [x] `event_datetime()` 개선/정리
+  - [x] docstring 에 실제 예시 포맷 (`2025-12-08T03:40:00.000000000Z[Etc/UTC]`) 명시
+  - [x] timezone-aware datetime(UTC) 반환 보장 확인
+  - [x] 잘못된 포맷일 때 fallback 전략을 주석으로 설명
+- [x] 파싱 어댑터 레이어 준비 (패턴 B 대비)
+  - [x] 나중에 “봇이 텍스트 기반 payload를 보내는 경우”를 대비해서,  
         `adapter` 레이어 설계 아이디어를 주석이나 TODO로 남겨두기
-    - [ ] 예: `adapt_raw_payload_to_vt_message(raw: dict | str) -> VTErrorEvent`
-  - [ ] 지금은 MessageCard 기준이지만, 실제 봇 payload를 본 뒤 이 레이어에서만 수정하도록 가이드
+    - [x] 예: `adapt_raw_payload_to_vt_message(raw: dict | str) -> VTErrorEvent`
+  - [x] 지금은 MessageCard 기준이지만, 실제 봇 payload를 본 뒤 이 레이어에서만 수정하도록 가이드
 - [ ] 테스트 아이디어
   - [ ] `event_datetime()` 에 대한 단위 테스트 추가 후보로 메모
   - [ ] `from_message()` 가 facts 누락/이름 변경에 어떻게 대응할지 규칙 정리 (필요 시)

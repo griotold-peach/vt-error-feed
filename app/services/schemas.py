@@ -1,4 +1,8 @@
 # app/services/schemas.py
+#
+# TODO: If future "pattern B" bots send text-only payloads, consider adding an adapter layer
+# (e.g., `adapt_raw_payload_to_vt_event(raw: dict | str) -> VTErrorEvent`) that normalizes
+# those payloads into VTWebhookMessage / VTErrorEvent before the handler logic consumes them.
 from __future__ import annotations
 
 from typing import List, Optional
@@ -27,8 +31,11 @@ class Section(BaseModel):
 
 class VTWebhookMessage(BaseModel):
     """
-    VT 서버 → 우리 서버로 들어오는 MessageCard 전체 페이로드.
-    실제 사용하는 필드만 정의해도 되고, 나머지는 자동으로 무시된다.
+    Teams MessageCard JSON payload used by VT → webhook.
+
+    - sections[].facts[] carries name/value pairs such as "Project", "Error Message",
+      "Error Detail", "Time", "Cause or Stack Trace".
+    - We model only the subset of fields we rely on; Pydantic ignores the rest.
     """
     title: Optional[str] = None
     summary: Optional[str] = None
@@ -48,8 +55,11 @@ class VTWebhookMessage(BaseModel):
 
 class VTErrorEvent(BaseModel):
     """
-    비즈니스 로직에서 다루기 편하게 정제된 에러 이벤트.
-    MessageCard에서 뽑은 값들을 모아둔다.
+    Domain model for business logic.
+
+    Derived from VTWebhookMessage via get_fact lookups so callers can work with
+    structured fields instead of raw MessageCards.
+    failure_reason / cause_or_stack_trace are optional results of parsing.
     """
     project: str
     error_message: str
@@ -89,9 +99,12 @@ class VTErrorEvent(BaseModel):
     
     def event_datetime(self) -> datetime:
         """
-        Time 필드를 datetime 으로 파싱해서 돌려준다.
-        VT 쪽 포맷이 '2025-12-09T20:10:51.796441041Z[Etc/UTC]' 이런 식이라면
-        대략 앞부분만 잘라서 써도 된다.
+        Parse the `time` field into a timezone-aware UTC datetime.
+
+        Expected input format resembles `2025-12-08T03:40:00.000000000Z[Etc/UTC]`.
+        Implementation takes the substring before `Z`, trims fractional seconds to 6 digits,
+        then feeds the result to `datetime.fromisoformat`.
+        If parsing fails, falls back to `datetime.now(timezone.utc)`.
         """
         # 예: "2025-12-09T20:10:51.796441041Z[Etc/UTC]"
         raw = self.time
