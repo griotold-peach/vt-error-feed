@@ -1,0 +1,30 @@
+{
+  "type": "MessageCard",
+  "context": "https://schema.org/extensions",
+  "themeColor": "FF0000",
+  "title": "🚨 API-Video-Translator Translate Project Exception.",
+  "summary": "웹훅 처리중 실패가 발생했습니다.",
+  "sections": [
+    {
+      "activityTitle": "웹훅 처리중 실패가 발생했습니다.",
+      "facts": [
+        {
+          "name": "Project",
+          "value": "271018"
+        },
+        {
+          "name": "Error Message",
+          "value": "Received Failed Webhook Event by Live API. Project Export ID: pvte-6981fb6d2bb21566f977f911ac01e5dd"
+        },
+        {
+          "name": "Error Detail",
+          "value": "Failure Reason: ENGINE_ERROR / Engine Error Code: NO_VOICE_DETECTED_VAD"
+        },
+        {
+          "name": "Time",
+          "value": "2025-12-09T19:51:17.096187645Z[Etc/UTC]"
+        }
+      ]
+    }
+  ]
+}

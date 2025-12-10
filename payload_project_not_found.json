@@ -1,0 +1,26 @@
+{
+  "type": "MessageCard",
+  "context": "https://schema.org/extensions",
+  "themeColor": "FF0000",
+  "title": "🚨 API-Video-Translator Translate Project Exception.",
+  "summary": "웹훅 처리중 실패가 발생했습니다.",
+  "sections": [
+    {
+      "activityTitle": "웹훅 처리중 실패가 발생했습니다.",
+      "facts": [
+        {
+          "name": "Project",
+          "value": "pvte-06ba8c7e550c760d03a494838113cb39"
+        },
+        {
+          "name": "Error Message",
+          "value": "'project' not found for exportId: pvte-06ba8c7e550c760d03a494838113cb39"
+        },
+        {
+          "name": "Time",
+          "value": "2025-12-09T20:08:44.817354716Z[Etc/UTC]"
+        }
+      ]
+    }
+  ]
+}

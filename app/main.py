@@ -19,5 +19,6 @@ async def vt_webhook(request: Request):
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid JSON body")
 
-    await handle_raw_alert(payload)
-    return {"status": "forwarded"}
+    forwarded = await handle_raw_alert(payload)
+
+    return {"status": "forwarded" if forwarded else "dropped"}

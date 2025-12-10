@@ -1,0 +1,24 @@
+{
+  "type": "MessageCard",
+  "context": "https://schema.org/extensions",
+  "themeColor": "FF0000",
+  "title": "🚨 API-Video-Translator Translate Project Exception.",
+  "summary": "웹훅 처리중 실패가 발생했습니다.",
+  "sections": [
+    {
+      "activityTitle": "웹훅 처리중 실패가 발생했습니다.",
+      "facts": [
+        { "name": "Project", "value": "269333" },
+        {
+          "name": "Error Message",
+          "value": "Received Failed Webhook Event by Live API. Project Export ID: pvte-1234567890abcdef1234567890abcdef"
+        },
+        {
+          "name": "Error Detail",
+          "value": "Failure Reason: VIDEO_PIPELINE_FAILED Engine Error Code: VIDEO_DECODE_ERROR"
+        },
+        { "name": "Time", "value": "2025-12-08T01:20:00.000000000Z[Etc/UTC]" }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "type": "MessageCard",
+  "context": "https://schema.org/extensions",
+  "themeColor": "FF0000",
+  "title": "🚨 API-Video-Translator Exception",
+  "summary": "An exception occurred in the application",
+  "sections": [
+    {
+      "activityTitle": "An exception occurred in the application",
+      "facts": [
+        { "name": "Error Code", "value": "VT5001" },
+        { "name": "Error Detail Code", "value": "INTERNAL_SERVER_ERROR" },
+        { "name": "HTTP Status", "value": "500 INTERNAL_SERVER_ERROR" },
+        { "name": "Time", "value": "2025-09-25T08:44:02.211326623Z[Etc/UTC]" },
+        {
+          "name": "Error Message",
+          "value": "Invalid FailureReason value: VIDEO_QUEUE_FULL"
+        },
+        {
+          "name": "Cause or Stack Trace",
+          "value": "Invalid FailureReason value: VIDEO_QUEUE_FULL"
+        }
+      ]
+    }
+  ]
+}
