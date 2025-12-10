@@ -5,7 +5,7 @@ import logging
 
 from pydantic import ValidationError
 
-from .notifier import post_to_forward_channel
+from app.infrastructure.notifier import post_to_forward_channel
 from app.adapters.messagecard import VTWebhookMessage
 from app.domain.events import VTErrorEvent
 from .forwarding import should_forward

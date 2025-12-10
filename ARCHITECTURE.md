@@ -35,7 +35,7 @@
   - `IncidentType`, `record_event(incident_type, timestamp) -> bool`
   - 슬라이딩 윈도우 / minute bucket 기반 장애 탐지 로직
 
-- `app/services/notifier.py`
+- `app/infrastructure/notifier.py`
   - `post_to_forward_channel(card: dict)`
   - `post_to_incident_channel(card: dict)`
 
