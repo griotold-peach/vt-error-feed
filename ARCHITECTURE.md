@@ -31,7 +31,7 @@
   - `VTErrorEvent` (도메인 모델)
   - `event_datetime()` 으로 Time 문자열을 datetime(UTC)로 변환
 
-- `app/services/anomaly.py`
+- `app/domain/anomaly.py`
   - `IncidentType`, `record_event(incident_type, timestamp) -> bool`
   - 슬라이딩 윈도우 / minute bucket 기반 장애 탐지 로직
 
@@ -39,7 +39,7 @@
   - `post_to_forward_channel(card: dict)`
   - `post_to_incident_channel(card: dict)`
 
-- `app/services/rules.py`
+- `app/domain/rules.py`
   - 비즈니스 규칙 상수:
     - forward 대상 Failure Reason
     - 특수 키워드 (VT5001, VIDEO_QUEUE_FULL 등)

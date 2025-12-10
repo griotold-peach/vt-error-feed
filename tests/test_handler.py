@@ -5,7 +5,7 @@ from typing import Any, Dict, List
 import pytest
 
 from app.services.handler import handle_raw_alert
-from app.services import anomaly
+from app.domain import anomaly
 
 
 # --- 공용 fixture: anomaly 상태 초기화 ------------------------------------

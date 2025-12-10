@@ -1,5 +1,3 @@
-# app/services/rules.py
-
 # 에러 피드 포워딩 대상 Failure Reason
 FORWARD_FAILURE_REASONS = {
     "AUDIO_PIPELINE_FAILED",

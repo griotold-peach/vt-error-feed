@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict
 
-from .anomaly import IncidentType, record_event
+from app.domain.anomaly import IncidentType, record_event
 from .notifier import post_to_incident_channel
 from app.domain.events import VTErrorEvent
 
