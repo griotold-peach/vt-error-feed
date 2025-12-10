@@ -1,4 +1,11 @@
-# app/services/anomaly.py
+"""
+Incident anomaly tracking helpers.
+
+Public API: `IncidentType` and `record_event(incident_type: IncidentType, timestamp: datetime) -> bool`.
+All module-level state containers and helpers (e.g. `_event_windows`, `_minute_counts`,
+`_last_alert_ts`, `_record_*`, `_cleanup_*`) are internal implementation details.
+Use `reset_state()` only in tests to clear those structures between runs.
+"""
 from __future__ import annotations
 
 from collections import defaultdict, deque
@@ -38,6 +45,15 @@ _minute_counts: DefaultDict[IncidentType, Dict[str, int]] = defaultdict(dict)
 
 # 마지막으로 장애 알림을 발생시킨 시각 (쿨다운용)
 _last_alert_ts: Dict[IncidentType, datetime] = {}
+
+
+def reset_state() -> None:
+    """
+    테스트에서 anomaly 상태를 초기화할 때 사용한다.
+    """
+    _event_windows.clear()
+    _minute_counts.clear()
+    _last_alert_ts.clear()
 
 
 def _minute_key(ts: datetime) -> str:

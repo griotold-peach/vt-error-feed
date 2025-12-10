@@ -16,3 +16,8 @@ distribution = false
 
 [tool.pdm.scripts]
 dev = "uvicorn app.main:app --reload"
+test = { cmd = "pytest", env = { PYTHONPATH = "." } }
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+]
