@@ -9,8 +9,8 @@ async def health():
     return {"status": "ok"}
 
 
-@app.post("/vt/webhook")
-async def vt_webhook(request: Request):
+@app.post("/vt/webhook/live-api")
+async def vt_webhook_live_api(request: Request):
     """
     VT API 서버에서 Teams로 보내던 JSON을 이제 여기로 POST.
     """
