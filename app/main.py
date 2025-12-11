@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Request, HTTPException
 from app.services.handler import handle_raw_alert
 from app.services.monitoring import handle_monitoring_alert
+from app.domain.anomaly import reset_state
 
 app = FastAPI(title="VT Error Feed Filter Server")
 
@@ -39,3 +40,7 @@ async def vt_webhook_monitoring(request: Request):
     triggered = await handle_monitoring_alert(payload)
     return {"status": "incident_triggered" if triggered else "recorded"}
 
+@app.post("/debug/reset")
+async def reset():
+    reset_state()
+    return {"status": "reset"}

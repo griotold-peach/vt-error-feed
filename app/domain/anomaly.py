@@ -60,11 +60,11 @@ def _cleanup_minute_counts(
     for key in list(counts.keys()):
         try:
             bucket_dt = datetime.strptime(key, "%Y-%m-%d %H:%M")
+            # naive datetime으로 비교하기 위해 cutoff에서 tzinfo 제거
+            cutoff_naive = cutoff.replace(tzinfo=None) if cutoff.tzinfo else cutoff
+            if bucket_dt < cutoff_naive:
+                del counts[key]
         except ValueError:
-            del counts[key]
-            continue
-
-        if bucket_dt < cutoff:
             del counts[key]
 
     return counts
