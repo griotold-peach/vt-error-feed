@@ -1,39 +1,14 @@
-"""
-Incident anomaly tracking helpers.
-
-Public API: `IncidentType` and `record_event(incident_type: IncidentType, timestamp: datetime) -> bool`.
-All module-level state containers and helpers (e.g. `_event_windows`, `_minute_counts`,
-`_last_alert_ts`, `_record_*`, `_cleanup_*`) are internal implementation details.
-Use `reset_state()` only in tests to clear those structures between runs.
-"""
 from __future__ import annotations
 
 from collections import defaultdict, deque
 from datetime import datetime, timedelta
-from enum import Enum, auto
 from typing import Deque, DefaultDict, Dict
+
+from app.domain.incident_type import IncidentType
 
 import logging
 
 logger = logging.getLogger(__name__)
-
-
-class IncidentType(Enum):
-    """
-    장애 유형 정의.
-
-    - TIMEOUT: Live API 웹훅 처리 중 타임아웃
-    - API_ERROR: Live API 웹훅 처리 중 API 에러
-    - LIVE_API_DB_OVERLOAD: 영상 생성 실패 (더빙/오디오), Live API DB 부하
-    - YT_DOWNLOAD_FAIL: YouTube URL 다운로드 실패
-    - YT_EXTERNAL_FAIL: 외부 요인으로 인한 영상 업로드 실패 (Video 파일 업로드 실패)
-    """
-
-    TIMEOUT = auto()
-    API_ERROR = auto()
-    LIVE_API_DB_OVERLOAD = auto()
-    YT_DOWNLOAD_FAIL = auto()
-    YT_EXTERNAL_FAIL = auto()
 
 
 # 각 장애 유형별로 최근 이벤트의 타임스탬프를 저장하는 슬라이딩 윈도우
