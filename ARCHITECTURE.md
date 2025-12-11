@@ -3,72 +3,157 @@
 ## Goal
 
 - VT 관련 Teams 에러 피드를 받아서:
-  - (1) 특정 에러만 에러 피드 채널로 포워딩
-  - (2) 패턴을 감지해서 장애 채널로 알림
+  - (1) 특정 에러만 에러 피드 채널로 포워딩 (Feed1)
+  - (2) 패턴을 감지해서 장애 채널로 알림 (Feed1 + Feed2)
+
+## Feeds
+
+| Feed | 소스 채널 | 엔드포인트 | 역할 |
+|------|-----------|------------|------|
+| Feed1 | API-Video-Translator Prod | `/vt/webhook/live-api` | 포워딩 + 장애 탐지 (TIMEOUT, API_ERROR) |
+| Feed2 | VT 실시간 모니터링 [PM, PO] | `/vt/webhook/monitoring` | 장애 탐지 (DB부하, 유튜브) |
+
+## 장애 기준
+
+| 장애유형 | 설명 | 장애기준 | 쿨다운 |
+|----------|------|----------|--------|
+| TIMEOUT | Live API 웹훅 처리 중 타임아웃 | 1시간 내 3건 이상 | 10분 |
+| API_ERROR | Live API 웹훅 처리 중 API 에러 | 5분 내 5건 이상 OR 동일 분 3건 이상 | 5분 |
+| LIVE_API_DB_OVERLOAD | 영상 생성 실패 (더빙/오디오) | 동일 분 3건 이상 | 5분 |
+| YT_DOWNLOAD_FAIL | YouTube URL 다운로드 실패 | 30분 내 3건 이상 | 10분 |
+| YT_EXTERNAL_FAIL | Video 파일 업로드 실패 | 30분 내 3건 이상 | 10분 |
 
 ## Layers & Modules
 ```
 app/
   __init__.py
-  main.py          # FastAPI 엔트리
-  config.py        # 환경 변수/설정
+  main.py              # FastAPI 엔트리
+  config.py            # 환경 변수/설정
 
-  adapters/        # 외부 포맷 ↔ 내부 모델 변환
+  adapters/            # 외부 포맷 ↔ 내부 모델 변환
     __init__.py
-    messagecard.py    # Fact, Section, VTWebhookMessage
+    messagecard.py        # Fact, Section, VTWebhookMessage
 
-  domain/          # 비즈니스 도메인 모델 + 규칙
+  domain/              # 비즈니스 도메인 모델 + 규칙
     __init__.py
-    events.py         # VTErrorEvent
-    anomaly.py        # IncidentType, record_event, reset_state
-    rules.py          # FORWARD_FAILURE_REASONS, SPECIAL_FORWARD_KEYWORDS 등
+    incident_type.py      # IncidentType enum
+    incident_config.py    # 장애 기준 설정 (threshold, cooldown)
+    events.py             # VTErrorEvent, MonitoringEvent
+    anomaly.py            # record_event, reset_state (슬라이딩 윈도우)
+    rules.py              # FORWARD_FAILURE_REASONS, SPECIAL_FORWARD_KEYWORDS
 
-  services/        # use-case / application 서비스
+  services/            # use-case / application 서비스
     __init__.py
-    handler.py        # /vt/webhook 유즈케이스 (지금 그대로)
-    forwarding.py     # should_forward
-    incident.py       # classify_incident_from_vt, handle_incident
+    handler.py            # Feed1 처리 (/vt/webhook/live-api)
+    monitoring.py         # Feed2 처리 (/vt/webhook/monitoring)
+    forwarding.py         # should_forward
+    incident.py           # classify_incident_from_vt, handle_incident
 
-  infrastructure/  # 외부 시스템 연동 (HTTP, DB, MQ 등)
+  infrastructure/      # 외부 시스템 연동
     __init__.py
-    notifier.py       # Teams Webhook 호출
+    notifier.py           # Teams Webhook 호출
 
+scripts/               # 테스트/유틸리티 스크립트
+  e2e_test.sh            # E2E 테스트 (curl)
+  e2e_test.py            # E2E 테스트 (Python)
 ```
 
-- `app/main.py`
-  - FastAPI 엔드포인트 정의. `/vt/webhook` 요청에서 JSON payload를 받고 `handle_raw_alert` 유즈케이스에 위임한다.
-- `app/config.py`
-  - Teams webhook URL 등 환경설정 값을 로드한다.
-- `app/adapters/messagecard.py`
-  - Teams MessageCard DTO (`Fact`, `Section`, `VTWebhookMessage`). sections[].facts[]에서 name/value를 추출하는 helper를 제공한다.
-- `app/domain/events.py`
-  - 비즈니스 도메인 모델 `VTErrorEvent` 와 `event_datetime()` 파서.
-- `app/domain/anomaly.py`
-  - 장애 탐지 모델: `IncidentType`, `record_event(...)`, 테스트용 `reset_state()`. 슬라이딩 윈도우/쿨다운 로직이 여기에 있다.
-- `app/domain/rules.py`
-  - 비즈니스 상수 (`FORWARD_FAILURE_REASONS`, `SPECIAL_FORWARD_KEYWORDS`).
-- `app/services/handler.py`
-  - `/vt/webhook` 요청을 처리하는 진입점. payload 파싱 → forwarding 판단 → incident 처리 순으로 orchestrate.
-- `app/services/forwarding.py`
-  - `should_forward(event)` 로직: failure_reason whitelist와 특수 키워드 매칭.
-- `app/services/incident.py`
-  - `classify_incident_from_vt` + `handle_incident`: 도메인 anomaly를 호출하고 필요 시 incident 채널에 알림 전송.
-- `app/infrastructure/notifier.py`
-  - HTTP 연동 계층. Teams webhook 으로 MessageCard를 보내는 `post_to_forward_channel` / `post_to_incident_channel`.
+## Module 설명
 
-## `/vt/webhook` End-to-End Flow
+### app/main.py
+- FastAPI 엔드포인트 정의
+- `/vt/webhook/live-api` → `handler.handle_raw_alert()`
+- `/vt/webhook/monitoring` → `monitoring.handle_monitoring_alert()`
+- `/debug/reset` → 테스트용 상태 초기화
 
-1. `app/main.py` FastAPI 라우터가 payload JSON을 수신한다.
-2. Route handler가 `handle_raw_alert(payload)` (services/handler) 를 호출한다.
-3. handler는 `VTWebhookMessage`(adapters) 로 검증하고 `VTErrorEvent`(domain) 로 변환한다.
-4. `services/forwarding.should_forward` 가 forwarding 여부를 결정한다. True일 때 infrastructure/notifier 의 forward webhook으로 POST한다.
-5. handler는 `services/incident.handle_incident` 를 호출한다. 이 함수는
-   - `classify_incident_from_vt` 로 incident type을 결정하고
-   - `domain.anomaly.record_event` 로 패턴을 기록/판별하며
-   - 임계치를 넘으면 notifier 를 통해 incident webhook으로 POST한다.
-6. handler는 forward 여부를 bool 로 반환하고, FastAPI 는 이를 `{"status": "forwarded" | "dropped"}` 응답으로 변환한다.
+### app/config.py
+- 환경 변수 로드 (`.env`)
+- `TEAMS_FORWARD_WEBHOOK_URL`, `TEAMS_INCIDENT_WEBHOOK_URL`
+
+### app/adapters/messagecard.py
+- Teams MessageCard DTO (`Fact`, `Section`, `VTWebhookMessage`)
+- `get_fact(name)`: sections[].facts[]에서 값 추출
+
+### app/domain/incident_type.py
+- `IncidentType` enum: TIMEOUT, API_ERROR, LIVE_API_DB_OVERLOAD, YT_DOWNLOAD_FAIL, YT_EXTERNAL_FAIL
+
+### app/domain/incident_config.py
+- `IncidentThreshold` dataclass: window, count, same_minute_count, cooldown
+- `INCIDENT_THRESHOLDS`: 장애 유형별 기준 설정
+
+### app/domain/events.py
+- `VTErrorEvent`: Feed1 도메인 모델
+- `MonitoringEvent`: Feed2 도메인 모델
+- `_parse_event_datetime()`: 시간 문자열 파싱 (공통)
+
+### app/domain/anomaly.py
+- `record_event(incident_type, timestamp)`: 이벤트 기록 및 장애 판정
+- `reset_state()`: 테스트용 상태 초기화
+- 슬라이딩 윈도우 + 쿨다운 로직
+
+### app/domain/rules.py
+- `FORWARD_FAILURE_REASONS`: 포워딩 대상 Failure Reason
+- `SPECIAL_FORWARD_KEYWORDS`: 특수 키워드 (VIDEO_QUEUE_FULL 등)
+
+### app/services/handler.py
+- Feed1 처리 진입점
+- payload 파싱 → 포워딩 판단 → 장애 처리
+
+### app/services/monitoring.py
+- Feed2 처리 진입점
+- payload 파싱 → 장애 유형 분류 → 장애 처리
+
+### app/services/forwarding.py
+- `should_forward(event)`: 포워딩 여부 판단
+
+### app/services/incident.py
+- `classify_incident_from_vt(event)`: Feed1 이벤트 → IncidentType 매핑
+- `handle_incident(event, payload)`: 장애 탐지 및 알림
+
+### app/infrastructure/notifier.py
+- `post_to_forward_channel(card)`: 포워딩 채널로 전송
+- `post_to_incident_channel(card)`: 장애 알림 채널로 전송
+
+## End-to-End Flow
+
+### Feed1 (`/vt/webhook/live-api`)
+
+1. `main.py`가 payload 수신
+2. `handler.handle_raw_alert(payload)` 호출
+3. `VTWebhookMessage` → `VTErrorEvent` 변환
+4. `forwarding.should_forward(event)` → True면 포워딩 채널로 전송
+5. `incident.handle_incident(event, payload)` → 장애 기준 체크 → 트리거 시 장애 채널로 전송
+6. 응답: `{"status": "forwarded" | "dropped"}`
+
+### Feed2 (`/vt/webhook/monitoring`)
+
+1. `main.py`가 payload 수신
+2. `monitoring.handle_monitoring_alert(payload)` 호출
+3. `VTWebhookMessage` → `MonitoringEvent` 변환
+4. `_classify_incident_type(event)` → IncidentType 매핑
+5. `anomaly.record_event(incident_type, ts)` → 장애 기준 체크 → 트리거 시 장애 채널로 전송
+6. 응답: `{"status": "incident_triggered" | "recorded"}`
 
 ## Tests
+```
+tests/
+  conftest.py           # 공통 fixture
+  test_events.py        # VTErrorEvent, MonitoringEvent 테스트
+  test_forwarding.py    # should_forward 단위 테스트
+  test_handler.py       # Feed1 통합 테스트
+  test_monitoring.py    # Feed2 통합 테스트
+  test_anomaly.py       # 슬라이딩 윈도우 단위 테스트
+```
 
-- `tests/test_handler.py`
-  - `/vt/webhook` 유즈케이스를 end-to-end 로 검증한다 (forward 여부, incident 알림 호출 횟수 등).
+### 테스트 실행
+```bash
+# 전체 테스트
+pdm run test
+
+# 특정 파일
+pdm run pytest tests/test_anomaly.py -v
+
+# E2E 테스트 (서버 실행 필요)
+pdm run dev  # 터미널 1
+pdm run python scripts/e2e_test.py  # 터미널 2
+```
