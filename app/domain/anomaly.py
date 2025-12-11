@@ -71,7 +71,7 @@ def _cleanup_window(
     """
     q = _event_windows[incident_type]
     cutoff = now - window
-    while q and q[0] < cutoff:
+    while q and q[0] <= cutoff:
         q.popleft()
     return q
 
