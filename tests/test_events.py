@@ -1,6 +1,6 @@
 # tests/test_events.py
 from datetime import datetime
-from app.domain.events import VTErrorEvent
+from app.domain.events import VTErrorEvent, MonitoringEvent
 from app.adapters.messagecard import VTWebhookMessage, Section, Fact
 
 
@@ -73,3 +73,53 @@ def test_event_datetime_handles_invalid_format():
     dt = event.event_datetime()
 
     assert isinstance(dt, datetime)
+
+def make_monitoring_message(time_value: str) -> VTWebhookMessage:
+    """
+    MonitoringEvent용 VTWebhookMessage 헬퍼.
+    Feed2 구조: Description, Time
+    """
+    return VTWebhookMessage(
+        title="🚨 영상 생성 실패",
+        sections=[
+            Section(
+                activityTitle="더빙/오디오 생성 실패",
+                facts=[
+                    Fact(name="Description", value="영상 생성 실패 - 더빙/오디오 생성 실패"),
+                    Fact(name="Time", value=time_value),
+                ],
+            )
+        ],
+    )
+
+
+def test_monitoring_event_datetime_parses_valid_timestamp():
+    """
+    MonitoringEvent도 동일한 시간 파싱 로직이 동작하는지 확인.
+    """
+    time_str = "2025-01-01T12:34:56.123456789Z[Etc/UTC]"
+    msg = make_monitoring_message(time_str)
+    event = MonitoringEvent.from_message(msg)
+
+    dt = event.event_datetime()
+
+    assert isinstance(dt, datetime)
+    assert dt.year == 2025
+    assert dt.month == 1
+    assert dt.day == 1
+    assert dt.hour == 12
+    assert dt.minute == 34
+    assert dt.second == 56
+    assert dt.microsecond == 123456
+
+
+def test_monitoring_event_from_message():
+    """
+    MonitoringEvent.from_message()가 필드를 올바르게 추출하는지 확인.
+    """
+    msg = make_monitoring_message("2025-12-09T15:36:06.804587521Z[Etc/UTC]")
+    event = MonitoringEvent.from_message(msg)
+
+    assert event.title == "🚨 영상 생성 실패"
+    assert event.description == "영상 생성 실패 - 더빙/오디오 생성 실패"
+    assert "2025-12-09" in event.time
