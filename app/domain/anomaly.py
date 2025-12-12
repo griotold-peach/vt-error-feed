@@ -123,13 +123,6 @@ def record_event(incident_type: IncidentType, timestamp: datetime) -> bool:
         if counts[mkey] >= config.same_minute_count:
             triggered = True
 
-    # 슬라이딩 윈도우만 사용하는 타입은 여기서 append 필요
-    if config.window is not None and config.count > 0:
-        pass  # 이미 위에서 append 했음
-    elif config.window is not None:
-        q = _cleanup_window(incident_type, timestamp, config.window)
-        q.append(timestamp)
-
     if triggered:
         if _check_cooldown(incident_type, timestamp, config.cooldown):
             logger.info(

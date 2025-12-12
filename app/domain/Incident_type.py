@@ -13,8 +13,8 @@ class IncidentType(Enum):
     - YT_EXTERNAL_FAIL: 외부 요인으로 인한 영상 업로드 실패 (Video 파일 업로드 실패)
     """
 
-    TIMEOUT = auto()
-    API_ERROR = auto()
+    TIMEOUT = auto()                  # auto() 는 자동으로 값을 할당해주는 함수, 순서대로 1,2,3,4,5 할당해줌
+    API_ERROR = auto()                # 파이썬에서는 값이 필수
     LIVE_API_DB_OVERLOAD = auto()
     YT_DOWNLOAD_FAIL = auto()
     YT_EXTERNAL_FAIL = auto()
