@@ -149,6 +149,18 @@ def test_timeout_exact_window_boundary_excluded():
     # 13:00 정각 - 12:00 이벤트는 정확히 60분 → 제외
     # 윈도우 내: 12:30, 13:00 = 2건
     assert record_event(IncidentType.TIMEOUT, make_time(base, 60)) is False
+
+def test_timeout_just_inside_window():
+    """TIMEOUT: 59분 후 → 아직 윈도우 내"""
+    base = datetime(2025, 1, 1, 12, 0, 0)
+    
+    record_event(IncidentType.TIMEOUT, make_time(base, 0))
+    record_event(IncidentType.TIMEOUT, make_time(base, 30))
+    
+    # 59분 후 → 첫 번째 이벤트 아직 윈도우 내
+    result = record_event(IncidentType.TIMEOUT, make_time(base, 59))
+    assert result is True
+
 # --- API_ERROR 테스트 (5분 내 5건 OR 동일 분 3건, 쿨다운 5분) --------------------------
 
 
@@ -193,7 +205,6 @@ def test_api_error_window_expires():
     # 6분 후 (12:06) - 12:00 이벤트는 윈도우 밖
     # 윈도우: 12:01 ~ 12:06, 윈도우 내 4건 (12:01, 12:02, 12:03, 12:06)
     assert record_event(IncidentType.API_ERROR, make_time(base, 6)) is False
-
 
 def test_api_error_cooldown_suppresses():
     """API_ERROR: 트리거 후 쿨다운(5분) 내 추가 이벤트 → suppress"""
@@ -316,6 +327,33 @@ def test_api_error_continuous_events_single_alert_per_cooldown():
     assert 10 in alerts
     assert len(alerts) == 3
 
+def test_api_error_cooldown_exact_boundary():
+    """API_ERROR: 정확히 쿨다운(5분) 경계"""
+    base = datetime(2025, 1, 1, 12, 0, 0)
+    
+    # 첫 트리거 (동일 분 3건)
+    record_event(IncidentType.API_ERROR, make_time(base, 0, 0))
+    record_event(IncidentType.API_ERROR, make_time(base, 0, 10))
+    assert record_event(IncidentType.API_ERROR, make_time(base, 0, 20)) is True
+    
+    # 정확히 5분 후 다시 3건 → 쿨다운 끝났으므로 트리거
+    record_event(IncidentType.API_ERROR, make_time(base, 5, 0))
+    record_event(IncidentType.API_ERROR, make_time(base, 5, 10))
+    assert record_event(IncidentType.API_ERROR, make_time(base, 5, 20)) is True
+
+def test_api_error_cooldown_just_before_boundary():
+    """API_ERROR: 쿨다운 끝나기 직전(4분 59초) → 아직 suppress"""
+    base = datetime(2025, 1, 1, 12, 0, 0)
+    
+    # 첫 트리거
+    record_event(IncidentType.API_ERROR, make_time(base, 0, 0))
+    record_event(IncidentType.API_ERROR, make_time(base, 0, 10))
+    assert record_event(IncidentType.API_ERROR, make_time(base, 0, 20)) is True
+    
+    # 4분 59초 후 다시 3건 → 아직 쿨다운 내
+    record_event(IncidentType.API_ERROR, make_time(base, 4, 59))
+    record_event(IncidentType.API_ERROR, make_time(base, 4, 59))
+    assert record_event(IncidentType.API_ERROR, make_time(base, 4, 59)) is False    
 
 # --- LIVE_API_DB_OVERLOAD 테스트 (동일 분 3건) ----------------------------
 
@@ -477,7 +515,18 @@ def test_yt_download_exact_window_boundary_excluded():
     # 윈도우 내: 12:15, 12:30 = 2건
     assert record_event(IncidentType.YT_DOWNLOAD_FAIL, make_time(base, 30)) is False
 
-# --- YT_EXTERNAL_FAIL 테스트 (30분 내 3건) --------------------------------
+def test_yt_download_just_inside_window():
+    """YT_DOWNLOAD: 29분 후 → 아직 윈도우 내"""
+    base = datetime(2025, 1, 1, 12, 0, 0)
+    
+    record_event(IncidentType.YT_DOWNLOAD_FAIL, make_time(base, 0))
+    record_event(IncidentType.YT_DOWNLOAD_FAIL, make_time(base, 15))
+    
+    # 29분 후 → 첫 번째 이벤트 아직 윈도우 내
+    result = record_event(IncidentType.YT_DOWNLOAD_FAIL, make_time(base, 29))
+    assert result is True
+
+# --- YT_EXTERNAL_FAIL 테스트 (30분 내 3건, 쿨다운 10분) --------------------------------
 
 
 def test_yt_external_no_incident_under_threshold():
@@ -508,103 +557,61 @@ def test_yt_external_window_expires():
     result = record_event(IncidentType.YT_EXTERNAL_FAIL, make_time(base, 35))
     assert result is False
 
-
-# --- API_ERROR 윈도우 만료 테스트 -----------------------------------------
-
-
-def test_api_error_window_expires():
-    """API_ERROR: 5분 지난 이벤트는 카운트 안 됨"""
+def test_yt_external_cooldown_suppresses():
+    """Video 파일 업로드 실패: 트리거 후 쿨다운(10분) 내 → suppress"""
     base = datetime(2025, 1, 1, 12, 0, 0)
     
-    record_event(IncidentType.API_ERROR, make_time(base, 0))
-    record_event(IncidentType.API_ERROR, make_time(base, 1))
-    record_event(IncidentType.API_ERROR, make_time(base, 2))
-    record_event(IncidentType.API_ERROR, make_time(base, 3))
+    # 3건으로 첫 트리거
+    record_event(IncidentType.YT_EXTERNAL_FAIL, make_time(base, 0))
+    record_event(IncidentType.YT_EXTERNAL_FAIL, make_time(base, 5))
+    assert record_event(IncidentType.YT_EXTERNAL_FAIL, make_time(base, 10)) is True
     
-    # 6분 후 (첫 번째 이벤트는 윈도우 밖)
-    result = record_event(IncidentType.API_ERROR, make_time(base, 6))
-    assert result is False
+    # 쿨다운(10분) 내 추가 이벤트 → suppress
+    assert record_event(IncidentType.YT_EXTERNAL_FAIL, make_time(base, 12)) is False
+    assert record_event(IncidentType.YT_EXTERNAL_FAIL, make_time(base, 15)) is False
+    assert record_event(IncidentType.YT_EXTERNAL_FAIL, make_time(base, 19)) is False
 
 
-# --- 경계값 테스트 --------------------------------------------------------
-
-
-def test_timeout_exact_window_boundary():
-    """TIMEOUT: 정확히 60분 경계 - 60분 된 이벤트는 제외"""
-    base = datetime(2025, 1, 1, 12, 0, 0)
-    
-    record_event(IncidentType.TIMEOUT, make_time(base, 0))
-    record_event(IncidentType.TIMEOUT, make_time(base, 30))
-    
-    # 정확히 60분 후 → 첫 번째 이벤트(0분)는 윈도우 밖
-    result = record_event(IncidentType.TIMEOUT, make_time(base, 60))
-    assert result is False
-
-
-def test_timeout_just_inside_window():
-    """TIMEOUT: 59분 후 → 아직 윈도우 내"""
-    base = datetime(2025, 1, 1, 12, 0, 0)
-    
-    record_event(IncidentType.TIMEOUT, make_time(base, 0))
-    record_event(IncidentType.TIMEOUT, make_time(base, 30))
-    
-    # 59분 후 → 첫 번째 이벤트 아직 윈도우 내
-    result = record_event(IncidentType.TIMEOUT, make_time(base, 59))
-    assert result is True
-
-
-def test_yt_download_exact_window_boundary():
-    """YT_DOWNLOAD: 정확히 30분 경계 - 30분 된 이벤트는 제외"""
-    base = datetime(2025, 1, 1, 12, 0, 0)
-    
-    record_event(IncidentType.YT_DOWNLOAD_FAIL, make_time(base, 0))
-    record_event(IncidentType.YT_DOWNLOAD_FAIL, make_time(base, 15))
-    
-    # 정확히 30분 후 → 첫 번째 이벤트(0분)는 윈도우 밖
-    result = record_event(IncidentType.YT_DOWNLOAD_FAIL, make_time(base, 30))
-    assert result is False
-
-
-def test_yt_download_just_inside_window():
-    """YT_DOWNLOAD: 29분 후 → 아직 윈도우 내"""
-    base = datetime(2025, 1, 1, 12, 0, 0)
-    
-    record_event(IncidentType.YT_DOWNLOAD_FAIL, make_time(base, 0))
-    record_event(IncidentType.YT_DOWNLOAD_FAIL, make_time(base, 15))
-    
-    # 29분 후 → 첫 번째 이벤트 아직 윈도우 내
-    result = record_event(IncidentType.YT_DOWNLOAD_FAIL, make_time(base, 29))
-    assert result is True
-
-
-# --- 쿨다운 경계값 테스트 --------------------------------------------------
-
-
-def test_api_error_cooldown_exact_boundary():
-    """API_ERROR: 정확히 쿨다운(5분) 경계"""
-    base = datetime(2025, 1, 1, 12, 0, 0)
-    
-    # 첫 트리거 (동일 분 3건)
-    record_event(IncidentType.API_ERROR, make_time(base, 0, 0))
-    record_event(IncidentType.API_ERROR, make_time(base, 0, 10))
-    assert record_event(IncidentType.API_ERROR, make_time(base, 0, 20)) is True
-    
-    # 정확히 5분 후 다시 3건 → 쿨다운 끝났으므로 트리거
-    record_event(IncidentType.API_ERROR, make_time(base, 5, 0))
-    record_event(IncidentType.API_ERROR, make_time(base, 5, 10))
-    assert record_event(IncidentType.API_ERROR, make_time(base, 5, 20)) is True
-
-
-def test_api_error_cooldown_just_before_boundary():
-    """API_ERROR: 쿨다운 끝나기 직전(4분 59초) → 아직 suppress"""
+def test_yt_external_cooldown_expires_then_retrigger():
+    """Video 파일 업로드 실패: 쿨다운(10분) 지난 후 → 재트리거"""
     base = datetime(2025, 1, 1, 12, 0, 0)
     
     # 첫 트리거
-    record_event(IncidentType.API_ERROR, make_time(base, 0, 0))
-    record_event(IncidentType.API_ERROR, make_time(base, 0, 10))
-    assert record_event(IncidentType.API_ERROR, make_time(base, 0, 20)) is True
+    record_event(IncidentType.YT_EXTERNAL_FAIL, make_time(base, 0))
+    record_event(IncidentType.YT_EXTERNAL_FAIL, make_time(base, 5))
+    assert record_event(IncidentType.YT_EXTERNAL_FAIL, make_time(base, 10)) is True
     
-    # 4분 59초 후 다시 3건 → 아직 쿨다운 내
-    record_event(IncidentType.API_ERROR, make_time(base, 4, 59))
-    record_event(IncidentType.API_ERROR, make_time(base, 4, 59))
-    assert record_event(IncidentType.API_ERROR, make_time(base, 4, 59)) is False
+    # 쿨다운(10분) 지난 후 - 윈도우 내 4건
+    assert record_event(IncidentType.YT_EXTERNAL_FAIL, make_time(base, 21)) is True
+
+
+def test_yt_external_window_sliding_correctly():
+    """Video 파일 업로드 실패: 윈도우가 슬라이딩되면서 오래된 이벤트 제외"""
+    base = datetime(2025, 1, 1, 12, 0, 0)
+    
+    # 12:00, 12:15에 2건
+    record_event(IncidentType.YT_EXTERNAL_FAIL, make_time(base, 0))
+    record_event(IncidentType.YT_EXTERNAL_FAIL, make_time(base, 15))
+    
+    # 12:35 - 12:00 이벤트는 윈도우 밖 (30분 초과)
+    # 윈도우 내: 12:15, 12:35 = 2건
+    assert record_event(IncidentType.YT_EXTERNAL_FAIL, make_time(base, 35)) is False
+    
+    # 12:36 추가 → 12:15, 12:35, 12:36 = 3건 → 트리거
+    assert record_event(IncidentType.YT_EXTERNAL_FAIL, make_time(base, 36)) is True
+
+
+def test_yt_external_exact_window_boundary_excluded():
+    """Video 파일 업로드 실패: 정확히 30분 경계 이벤트는 윈도우에서 제외"""
+    base = datetime(2025, 1, 1, 12, 0, 0)
+    
+    record_event(IncidentType.YT_EXTERNAL_FAIL, make_time(base, 0))   # 12:00
+    record_event(IncidentType.YT_EXTERNAL_FAIL, make_time(base, 15))  # 12:15
+    
+    # 12:30 정각 - 12:00 이벤트는 정확히 30분 → 제외
+    # 윈도우 내: 12:15, 12:30 = 2건
+    assert record_event(IncidentType.YT_EXTERNAL_FAIL, make_time(base, 30)) is False
+
+
+
+
