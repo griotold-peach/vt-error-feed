@@ -319,7 +319,6 @@ def test_api_error_continuous_events_single_alert_per_cooldown():
 
 # --- LIVE_API_DB_OVERLOAD 테스트 (동일 분 3건) ----------------------------
 
-
 def test_db_overload_no_incident_under_threshold():
     """DB 부하: 동일 분 2건 → incident 아님"""
     base = datetime(2025, 1, 1, 12, 0, 0)
@@ -344,6 +343,51 @@ def test_db_overload_different_minutes_no_incident():
     assert record_event(IncidentType.LIVE_API_DB_OVERLOAD, make_time(base, 0)) is False
     assert record_event(IncidentType.LIVE_API_DB_OVERLOAD, make_time(base, 1)) is False
     assert record_event(IncidentType.LIVE_API_DB_OVERLOAD, make_time(base, 2)) is False
+
+def test_db_overload_cooldown_suppresses():
+    """DB 부하: 트리거 후 쿨다운(5분) 내 추가 이벤트 → suppress"""
+    base = datetime(2025, 1, 1, 12, 0, 0)
+    
+    # 12:00분에 3건 → 트리거
+    record_event(IncidentType.LIVE_API_DB_OVERLOAD, make_time(base, 0, 0))
+    record_event(IncidentType.LIVE_API_DB_OVERLOAD, make_time(base, 0, 10))
+    assert record_event(IncidentType.LIVE_API_DB_OVERLOAD, make_time(base, 0, 20)) is True
+    
+    # 12:01분에 3건 → 쿨다운 내 suppress
+    record_event(IncidentType.LIVE_API_DB_OVERLOAD, make_time(base, 1, 0))
+    record_event(IncidentType.LIVE_API_DB_OVERLOAD, make_time(base, 1, 10))
+    assert record_event(IncidentType.LIVE_API_DB_OVERLOAD, make_time(base, 1, 20)) is False
+
+
+def test_db_overload_cooldown_expires_then_retrigger():
+    """DB 부하: 쿨다운(5분) 지난 후 → 재트리거"""
+    base = datetime(2025, 1, 1, 12, 0, 0)
+    
+    # 12:00분에 3건 → 트리거
+    record_event(IncidentType.LIVE_API_DB_OVERLOAD, make_time(base, 0, 0))
+    record_event(IncidentType.LIVE_API_DB_OVERLOAD, make_time(base, 0, 10))
+    assert record_event(IncidentType.LIVE_API_DB_OVERLOAD, make_time(base, 0, 20)) is True
+    
+    # 12:06분에 3건 → 쿨다운 지남 → 재트리거
+    record_event(IncidentType.LIVE_API_DB_OVERLOAD, make_time(base, 6, 0))
+    record_event(IncidentType.LIVE_API_DB_OVERLOAD, make_time(base, 6, 10))
+    assert record_event(IncidentType.LIVE_API_DB_OVERLOAD, make_time(base, 6, 20)) is True
+
+
+def test_db_overload_minute_boundary():
+    """DB 부하: 분 경계를 넘으면 카운트 리셋"""
+    base = datetime(2025, 1, 1, 12, 0, 0)
+    
+    # 12:00:50, 12:00:55 → 2건
+    record_event(IncidentType.LIVE_API_DB_OVERLOAD, make_time(base, 0, 50))
+    record_event(IncidentType.LIVE_API_DB_OVERLOAD, make_time(base, 0, 55))
+    
+    # 12:01:00 → 새로운 분, 카운트 1건으로 리셋
+    assert record_event(IncidentType.LIVE_API_DB_OVERLOAD, make_time(base, 1, 0)) is False
+    
+    # 12:01분에 2건 더 → 총 3건 → 트리거
+    record_event(IncidentType.LIVE_API_DB_OVERLOAD, make_time(base, 1, 10))
+    assert record_event(IncidentType.LIVE_API_DB_OVERLOAD, make_time(base, 1, 20)) is True
 
 
 # --- YT_DOWNLOAD_FAIL 테스트 (30분 내 3건) --------------------------------
