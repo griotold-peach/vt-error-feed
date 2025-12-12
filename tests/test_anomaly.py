@@ -390,7 +390,7 @@ def test_db_overload_minute_boundary():
     assert record_event(IncidentType.LIVE_API_DB_OVERLOAD, make_time(base, 1, 20)) is True
 
 
-# --- YT_DOWNLOAD_FAIL 테스트 (30분 내 3건) --------------------------------
+# --- YT_DOWNLOAD_FAIL 테스트 (30분 내 3건, 쿨다운 10분) --------------------------------
 
 
 def test_yt_download_no_incident_under_threshold():
@@ -422,38 +422,60 @@ def test_yt_download_window_expires():
     assert result is False
 
 
-# --- 쿨다운 테스트 --------------------------------------------------------
-
-
-def test_timeout_cooldown_suppresses_second_alert():
-    """TIMEOUT: 트리거 후 쿨다운(10분) 내 재발생 → suppress"""
+def test_yt_download_cooldown_suppresses():
+    """YouTube 다운로드: 트리거 후 쿨다운(10분) 내 → suppress"""
     base = datetime(2025, 1, 1, 12, 0, 0)
     
-    # 첫 번째 트리거
-    record_event(IncidentType.TIMEOUT, make_time(base, 0))
-    record_event(IncidentType.TIMEOUT, make_time(base, 10))
-    first_trigger = record_event(IncidentType.TIMEOUT, make_time(base, 20))
-    assert first_trigger is True
+    # 3건으로 첫 트리거
+    record_event(IncidentType.YT_DOWNLOAD_FAIL, make_time(base, 0))
+    record_event(IncidentType.YT_DOWNLOAD_FAIL, make_time(base, 5))
+    assert record_event(IncidentType.YT_DOWNLOAD_FAIL, make_time(base, 10)) is True
     
-    # 쿨다운 내 추가 이벤트 (25분, 30분)
-    assert record_event(IncidentType.TIMEOUT, make_time(base, 25)) is False
-    assert record_event(IncidentType.TIMEOUT, make_time(base, 28)) is False
+    # 쿨다운(10분) 내 추가 이벤트 → suppress
+    assert record_event(IncidentType.YT_DOWNLOAD_FAIL, make_time(base, 12)) is False
+    assert record_event(IncidentType.YT_DOWNLOAD_FAIL, make_time(base, 15)) is False
+    assert record_event(IncidentType.YT_DOWNLOAD_FAIL, make_time(base, 19)) is False
 
 
-def test_timeout_cooldown_expires_allows_new_alert():
-    """TIMEOUT: 쿨다운 지나면 다시 트리거 가능"""
+def test_yt_download_cooldown_expires_then_retrigger():
+    """YouTube 다운로드: 쿨다운(10분) 지난 후 → 재트리거"""
     base = datetime(2025, 1, 1, 12, 0, 0)
     
-    # 첫 번째 트리거
-    record_event(IncidentType.TIMEOUT, make_time(base, 0))
-    record_event(IncidentType.TIMEOUT, make_time(base, 10))
-    assert record_event(IncidentType.TIMEOUT, make_time(base, 20)) is True
+    # 첫 트리거
+    record_event(IncidentType.YT_DOWNLOAD_FAIL, make_time(base, 0))
+    record_event(IncidentType.YT_DOWNLOAD_FAIL, make_time(base, 5))
+    assert record_event(IncidentType.YT_DOWNLOAD_FAIL, make_time(base, 10)) is True
     
-    # 쿨다운(10분) 지난 후 다시 3건
-    record_event(IncidentType.TIMEOUT, make_time(base, 35))
-    record_event(IncidentType.TIMEOUT, make_time(base, 45))
-    assert record_event(IncidentType.TIMEOUT, make_time(base, 55)) is True
+    # 쿨다운(10분) 지난 후 - 이미 윈도우 내 4건
+    assert record_event(IncidentType.YT_DOWNLOAD_FAIL, make_time(base, 21)) is True
 
+
+def test_yt_download_window_sliding_correctly():
+    """YouTube 다운로드: 윈도우가 슬라이딩되면서 오래된 이벤트 제외"""
+    base = datetime(2025, 1, 1, 12, 0, 0)
+    
+    # 12:00, 12:15에 2건
+    record_event(IncidentType.YT_DOWNLOAD_FAIL, make_time(base, 0))
+    record_event(IncidentType.YT_DOWNLOAD_FAIL, make_time(base, 15))
+    
+    # 12:35 - 12:00 이벤트는 윈도우 밖 (30분 초과)
+    # 윈도우 내: 12:15, 12:35 = 2건
+    assert record_event(IncidentType.YT_DOWNLOAD_FAIL, make_time(base, 35)) is False
+    
+    # 12:36 추가 → 12:15, 12:35, 12:36 = 3건 → 트리거
+    assert record_event(IncidentType.YT_DOWNLOAD_FAIL, make_time(base, 36)) is True
+
+
+def test_yt_download_exact_window_boundary_excluded():
+    """YouTube 다운로드: 정확히 30분 경계 이벤트는 윈도우에서 제외"""
+    base = datetime(2025, 1, 1, 12, 0, 0)
+    
+    record_event(IncidentType.YT_DOWNLOAD_FAIL, make_time(base, 0))   # 12:00
+    record_event(IncidentType.YT_DOWNLOAD_FAIL, make_time(base, 15))  # 12:15
+    
+    # 12:30 정각 - 12:00 이벤트는 정확히 30분 → 제외
+    # 윈도우 내: 12:15, 12:30 = 2건
+    assert record_event(IncidentType.YT_DOWNLOAD_FAIL, make_time(base, 30)) is False
 
 # --- YT_EXTERNAL_FAIL 테스트 (30분 내 3건) --------------------------------
 
