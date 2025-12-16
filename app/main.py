@@ -1,7 +1,8 @@
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException, Depends
 from app.services.handler import handle_raw_alert
 from app.services.monitoring import handle_monitoring_alert
 from app.domain.anomaly import reset_state
+from app.utils.security import verify_teams_hmac
 
 app = FastAPI(title="VT Error Feed Filter Server")
 
@@ -12,7 +13,10 @@ async def health():
 
 
 @app.post("/vt/webhook/live-api")
-async def vt_webhook_live_api(request: Request):
+async def vt_webhook_live_api(
+    request: Request,
+    _: bool = Depends(verify_teams_hmac)  # HMAC 검증 추가
+):
     """
     API-VIdeo-Translator Prod 채널에서 수신
     """
@@ -26,7 +30,10 @@ async def vt_webhook_live_api(request: Request):
     return {"status": "forwarded" if forwarded else "dropped"}
 
 @app.post("/vt/webhook/monitoring")
-async def vt_webhook_monitoring(request: Request):
+async def vt_webhook_monitoring(
+    request: Request,
+    _: bool = Depends(verify_teams_hmac)  # HMAC 검증 추가
+):
     """
     Feed2 (VT 실시간 모니터링 채널 [ PM, PO ]) 엔드포인트.
     영상 생성 실패 / 외부 URL 다운로드 실패 / Video 파일 업로드 실패 등을 받아서
