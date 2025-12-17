@@ -5,6 +5,7 @@ from botframework.connector.auth import (
     JwtTokenValidation,
     SimpleCredentialProvider,
 )
+from botbuilder.schema import Activity  # ← 추가!
 from fastapi import HTTPException, Request
 from typing import Dict, Any
 import logging
@@ -72,26 +73,34 @@ async def verify_bot_request(request: Request) -> Dict[str, Any]:
     except Exception as e:
         logger.warning(f"⚠️ Failed to decode JWT for debugging: {e}")
     
-    # Activity 파싱
+    # Activity 파싱 (dict로)
     try:
-        activity = await request.json()
+        activity_dict = await request.json()
         logger.info(f"🔍 Activity parsed:")
-        logger.info(f"  - type: {activity.get('type')}")
-        logger.info(f"  - channelId: {activity.get('channelId')}")
-        logger.info(f"  - from: {activity.get('from', {}).get('name')}")
+        logger.info(f"  - type: {activity_dict.get('type')}")
+        logger.info(f"  - channelId: {activity_dict.get('channelId')}")
+        logger.info(f"  - from: {activity_dict.get('from', {}).get('name')}")
     except Exception as e:
         logger.error(f"❌ Invalid JSON body: {e}")
         raise HTTPException(status_code=400, detail="Invalid JSON body")
+    
+    # dict → Activity 객체 변환
+    try:
+        activity = Activity().deserialize(activity_dict)
+        logger.info(f"🔍 Activity object created")
+    except Exception as e:
+        logger.error(f"❌ Failed to create Activity object: {e}")
+        raise HTTPException(status_code=400, detail="Invalid Activity format")
     
     # Credential Provider 생성
     credentials = SimpleCredentialProvider(MICROSOFT_APP_ID, MICROSOFT_APP_PASSWORD)
     
     logger.info(f"🔍 Starting JWT validation...")
     
-    # JWT 검증 (auth_config 제거!)
+    # JWT 검증
     try:
         await JwtTokenValidation.authenticate_request(
-            activity=activity,
+            activity=activity,  # Activity 객체!
             auth_header=auth_header,
             credentials=credentials
         )
@@ -104,4 +113,5 @@ async def verify_bot_request(request: Request) -> Dict[str, Any]:
             detail=f"Token validation failed: {str(e)}"
         )
     
-    return activity
+    # dict로 반환 (기존 로직 호환)
+    return activity_dict
