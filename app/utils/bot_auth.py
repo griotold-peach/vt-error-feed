@@ -4,7 +4,6 @@ Bot Framework JWT 토큰 검증
 from botframework.connector.auth import (
     JwtTokenValidation,
     SimpleCredentialProvider,
-    AuthenticationConfiguration
 )
 from fastapi import HTTPException, Request
 from typing import Dict, Any
@@ -86,17 +85,15 @@ async def verify_bot_request(request: Request) -> Dict[str, Any]:
     
     # Credential Provider 생성
     credentials = SimpleCredentialProvider(MICROSOFT_APP_ID, MICROSOFT_APP_PASSWORD)
-    auth_config = AuthenticationConfiguration()
     
     logger.info(f"🔍 Starting JWT validation...")
     
-    # JWT 검증
+    # JWT 검증 (auth_config 제거!)
     try:
         await JwtTokenValidation.authenticate_request(
             activity=activity,
             auth_header=auth_header,
-            credentials=credentials,
-            auth_config=auth_config
+            credentials=credentials
         )
         logger.info(f"✅ JWT validation successful!")
         
