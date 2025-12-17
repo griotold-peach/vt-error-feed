@@ -6,6 +6,11 @@ from app.utils.security import verify_teams_hmac
 from app.utils.bot_auth import verify_bot_request
 from app.adapters.bot_activity import parse_bot_activity, get_channel_type
 
+import logging
+import json
+
+logger = logging.getLogger(__name__)
+
 app = FastAPI(title="VT Error Feed Filter Server")
 
 
@@ -23,34 +28,52 @@ async def bot_messages(
     Bot Framework 메시지 수신 엔드포인트
     RSC 권한으로 채널의 모든 메시지를 받음
     """
+    # ✅ Activity 전체 로그 출력
+    logger.info("=" * 80)
+    logger.info("📨 Received Bot Activity:")
+    logger.info(json.dumps(activity, indent=2, ensure_ascii=False))
+    logger.info("=" * 80)
+    
     # Activity 파싱
     parsed = parse_bot_activity(activity)
     
     if not parsed:
         # message 타입이 아니면 무시
+        logger.info("⚠️ Not a message type, ignoring")
         return {"status": "ignored", "reason": "not_a_message"}
+    
+    logger.info(f"✅ Parsed activity:")
+    logger.info(f"  - channel_id: {parsed.get('channel_id')}")
+    logger.info(f"  - text: {parsed.get('text')}")
     
     # 채널 구분
     channel_type = get_channel_type(parsed["channel_id"])
     
     if not channel_type:
         # 등록된 채널이 아니면 무시
+        logger.info(f"⚠️ Unknown channel: {parsed['channel_id']}")
         return {
             "status": "ignored", 
             "reason": "unknown_channel",
             "channel_id": parsed["channel_id"]
         }
     
+    logger.info(f"✅ Channel identified: {channel_type}")
+    
     # Feed1/Feed2 구분해서 기존 로직 호출
     if channel_type == "feed1":
         # Teams 메시지를 기존 포맷으로 변환
+        logger.info("🔄 Converting to Feed1 format...")
         payload = convert_to_feed1_format(parsed)
         forwarded = await handle_raw_alert(payload)
+        logger.info(f"✅ Feed1 result: {'forwarded' if forwarded else 'dropped'}")
         return {"status": "forwarded" if forwarded else "dropped", "channel": "feed1"}
     
     elif channel_type == "feed2":
+        logger.info("🔄 Converting to Feed2 format...")
         payload = convert_to_feed2_format(parsed)
         triggered = await handle_monitoring_alert(payload)
+        logger.info(f"✅ Feed2 result: {'incident_triggered' if triggered else 'recorded'}")
         return {
             "status": "incident_triggered" if triggered else "recorded", 
             "channel": "feed2"
