@@ -6,8 +6,7 @@ import re
 from typing import Optional
 
 from app.adapters.messagecard import VTWebhookMessage
-from app.services.handler import handle_raw_alert
-from app.services.monitoring import handle_monitoring_alert
+from app.container import get_container
 
 
 class MessageProcessor:
@@ -22,7 +21,13 @@ class MessageProcessor:
         """
         print(f"📨 Processing Feed1: {card.title}")
         
-        forwarded = await handle_raw_alert(card)
+        # 컨테이너에서 AlertHandler 가져오기
+        container = get_container()
+        handler = container.alert_handler
+        
+        # 처리
+        payload = card.model_dump() if hasattr(card, 'model_dump') else card.dict()
+        forwarded = await handler.handle_raw_alert(payload)
         
         if forwarded:
             print(f"✅ Feed1 forwarded to VT Error Feed Prod")
@@ -46,7 +51,13 @@ class MessageProcessor:
             desc_clean = re.sub(r'<[^>]+>', '', desc)
             print(f"📋 Description: {desc_clean}")
         
-        triggered = await handle_monitoring_alert(card)
+        # 컨테이너에서 MonitoringHandler 가져오기
+        container = get_container()
+        handler = container.monitoring_handler
+        
+        # 처리
+        payload = card.model_dump() if hasattr(card, 'model_dump') else card.dict()
+        triggered = await handler.handle_monitoring_alert(payload)
         
         if triggered:
             print(f"🚨 Feed2 incident triggered!")

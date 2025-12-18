@@ -8,9 +8,9 @@ from typing import Dict
 import logging
 
 from app.adapters.graph_client import GraphClient
-from app.services.message_parser import TeamsMessageParser
-from app.services.message_processor import MessageProcessor
-from app.services.duplicate_tracker import DuplicateTracker
+from app.application.services.message_parser import TeamsMessageParser
+from app.application.services.message_processor import MessageProcessor
+from app.application.services.duplicate_tracker import DuplicateTracker
 from app.config import (
     TEAMS_TEAM_ID,
     TEAMS_FEED1_CHANNEL_ID,

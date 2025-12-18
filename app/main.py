@@ -1,17 +1,15 @@
+# app/main.py
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
 import asyncio
 
 from app.domain.anomaly import reset_state
 from app.adapters.graph_client import GraphClient
-from app.services.message_poller import MessagePoller
-
-import logging
-
-logger = logging.getLogger(__name__)
+from app.application.services.message_poller import MessagePoller
+from app.container import init_container, get_container
 
 # Global poller instance
-poller: MessagePoller = None
+poller: MessagePoller | None = None
 
 
 @asynccontextmanager
@@ -24,10 +22,13 @@ async def lifespan(app: FastAPI):
     print("🚀 Starting VT Error Feed Filter Server")
     print("=" * 80)
     
-    # Graph API 클라이언트 생성
+    # 1. 의존성 컨테이너 초기화
+    container = init_container()
+    
+    # 2. Graph API 클라이언트 생성
     graph_client = GraphClient()
     
-    # Message Poller 생성 및 시작
+    # 3. Message Poller 생성 및 시작
     poller = MessagePoller(graph_client)
     asyncio.create_task(poller.start())
     
@@ -51,9 +52,12 @@ app = FastAPI(
 @app.get("/health")
 async def health():
     """헬스체크 엔드포인트"""
+    container = get_container()
+    
     return {
         "status": "ok",
-        "poller_running": poller.running if poller else False
+        "poller_running": poller.running if poller else False,
+        "container_initialized": container is not None
     }
 
 

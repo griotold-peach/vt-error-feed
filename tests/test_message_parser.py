@@ -2,7 +2,7 @@
 import pytest
 import json
 
-from app.services.message_parser import TeamsMessageParser
+from app.application.services.message_parser import TeamsMessageParser
 from app.adapters.messagecard import VTWebhookMessage
 
 

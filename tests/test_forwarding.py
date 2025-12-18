@@ -1,6 +1,6 @@
 # tests/test_forwarding.py
 from app.domain.events import VTErrorEvent
-from app.services.forwarding import should_forward
+from app.application.services.forwarding import should_forward
 
 
 def make_event(

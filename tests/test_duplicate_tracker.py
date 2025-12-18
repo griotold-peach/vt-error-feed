@@ -1,7 +1,7 @@
 # tests/test_duplicate_tracker.py
 import pytest
 
-from app.services.duplicate_tracker import DuplicateTracker
+from app.application.services.duplicate_tracker import DuplicateTracker
 
 
 # --- 픽스처 ----------------------------------------------------------------

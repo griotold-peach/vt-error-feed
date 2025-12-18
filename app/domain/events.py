@@ -8,6 +8,7 @@ import re
 from pydantic import BaseModel
 
 from app.adapters.messagecard import VTWebhookMessage
+from app.domain.incident_type import IncidentType
 
 
 def _parse_event_datetime(raw: str | None) -> datetime:
@@ -29,7 +30,14 @@ def _parse_event_datetime(raw: str | None) -> datetime:
         else:
             trimmed = before_z
         
-        return datetime.fromisoformat(trimmed)
+        # ✅ timezone 추가!
+        dt = datetime.fromisoformat(trimmed)
+        
+        # ✅ naive datetime이면 UTC로 변환
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        
+        return dt
     except Exception:
         return datetime.now(timezone.utc)
 
@@ -72,6 +80,18 @@ class VTErrorEvent(BaseModel):
 
     def event_datetime(self) -> datetime:
         return _parse_event_datetime(self.time)
+    
+    # ✅ 이렇게 추가!
+    def to_incident_type(self) -> Optional[IncidentType]:
+        """이 이벤트에 해당하는 IncidentType 반환"""
+        from app.domain.incident_type import IncidentType
+        
+        if self.failure_reason == "TIMEOUT":
+            return IncidentType.TIMEOUT
+        elif self.failure_reason == "API_ERROR":
+            return IncidentType.API_ERROR
+        
+        return None
 
 
 class MonitoringEvent(BaseModel):
@@ -97,3 +117,19 @@ class MonitoringEvent(BaseModel):
     
     def event_datetime(self) -> datetime:
         return _parse_event_datetime(self.time)
+    
+    # ✅ 이것도 추가!
+    def to_incident_type(self) -> Optional[IncidentType]:
+        """이 이벤트에 해당하는 IncidentType 반환"""
+        from app.domain.incident_type import IncidentType
+        
+        description = self.description.lower()
+        
+        if "더빙/오디오 생성 실패" in description:
+            return IncidentType.LIVE_API_DB_OVERLOAD
+        elif "youtube url 다운로드 실패" in description:
+            return IncidentType.YT_DOWNLOAD_FAIL
+        elif "외부 url 다운로드 실패" in description or "video 파일 업로드 실패" in description:
+            return IncidentType.YT_EXTERNAL_FAIL
+        
+        return None

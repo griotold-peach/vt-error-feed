@@ -4,11 +4,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from datetime import datetime, timezone
 
-from app.services.message_poller import MessagePoller
+from app.application.services.message_poller import MessagePoller
 from app.adapters.graph_client import GraphClient
-from app.services.message_parser import TeamsMessageParser
-from app.services.message_processor import MessageProcessor
-from app.services.duplicate_tracker import DuplicateTracker
+from app.application.services.message_parser import TeamsMessageParser
+from app.application.services.message_processor import MessageProcessor
+from app.application.services.duplicate_tracker import DuplicateTracker
 from app.adapters.messagecard import VTWebhookMessage
 from app.config import (  # ✅ 파일 상단
     TEAMS_TEAM_ID,
@@ -356,10 +356,8 @@ async def test_start_continues_on_error(poller, caplog):
 @pytest.mark.anyio
 async def test_end_to_end_feed1_processing(graph_client):
     """Feed1 전체 플로우 통합 테스트"""
-    # 실제 객체 사용 (Mock 없이)
     poller = MessagePoller(graph_client)
     
-    # Graph API에서 메시지 반환
     card_dict = {
         "title": "🚨 Error",
         "summary": "웹훅 처리중 실패",
@@ -382,9 +380,14 @@ async def test_end_to_end_feed1_processing(graph_client):
     
     graph_client.get_channel_messages = AsyncMock(return_value=[message])
     
-    # Processor를 mock으로 대체 (실제 API 호출 방지)
-    with patch('app.services.message_processor.handle_raw_alert', 
-               new_callable=AsyncMock, return_value=True):
+    # ✅ get_container를 Mock!
+    with patch('app.application.services.message_processor.get_container') as mock_get_container:
+        mock_container = MagicMock()
+        mock_handler = MagicMock()
+        mock_handler.handle_raw_alert = AsyncMock(return_value=True)
+        mock_container.alert_handler = mock_handler
+        mock_get_container.return_value = mock_container
+        
         await poller.poll_channel("test_channel", "feed1")
     
     # 메시지가 처리되었는지 확인
@@ -408,14 +411,20 @@ async def test_end_to_end_duplicate_prevention(graph_client):
     
     graph_client.get_channel_messages = AsyncMock(return_value=[message])
     
-    with patch('app.services.message_processor.handle_raw_alert',
-               new_callable=AsyncMock) as mock_handler:
+    # ✅ get_container를 Mock!
+    with patch('app.application.services.message_processor.get_container') as mock_get_container:
+        mock_container = MagicMock()
+        mock_handler = MagicMock()
+        mock_handler.handle_raw_alert = AsyncMock()
+        mock_container.alert_handler = mock_handler
+        mock_get_container.return_value = mock_container
+        
         # 첫 번째 polling
         await poller.poll_channel("test_channel", "feed1")
-        assert mock_handler.call_count == 1
+        assert mock_handler.handle_raw_alert.call_count == 1
         
         # 두 번째 polling (같은 메시지)
         await poller.poll_channel("test_channel", "feed1")
         
         # 중복이므로 handler가 다시 호출되지 않음
-        assert mock_handler.call_count == 1
+        assert mock_handler.handle_raw_alert.call_count == 1
