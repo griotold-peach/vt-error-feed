@@ -154,7 +154,7 @@ def test_is_card_message_o365_connector(poller):
 
 
 def test_is_card_message_adaptive(poller):
-    """Adaptive Card도 card 메시지로 판별"""
+    """Adaptive Card는 card 메시지로 판별하지 않는다 (YAGNI)"""
     message = {
         "attachments": [
             {
@@ -162,7 +162,7 @@ def test_is_card_message_adaptive(poller):
             }
         ]
     }
-    assert poller.is_card_message(message) is True
+    assert poller.is_card_message(message) is False
 
 
 def test_is_card_message_text_html(poller):

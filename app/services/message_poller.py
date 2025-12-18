@@ -28,13 +28,24 @@ class MessagePoller:
         self.running = False
     
     def is_card_message(self, message: dict) -> bool:
-        """Card 메시지 여부 확인 (Adaptive Card 또는 O365 Connector Card)"""
+        """
+        Card 첨부물이 있는지 확인
+        
+        Teams 메시지는 여러 종류의 첨부물을 가질 수 있음:
+        - text/html (일반 HTML)
+        - image/png (이미지)
+        - application/vnd.microsoft.card.adaptive (Adaptive Card)
+        - application/vnd.microsoft.teams.card.o365connector (O365 Card)
+        
+        현재는 O365 Connector Card만 체크 (실제 사용되는 타입)
+        """
         attachments = message.get("attachments", [])
         
         for attachment in attachments:
             content_type = attachment.get("contentType", "")
-            # Adaptive Card 또는 O365 Connector Card
-            if "adaptive" in content_type.lower() or "o365connector" in content_type.lower():
+            
+            # O365 Connector Card 체크
+            if "o365connector" in content_type.lower():
                 return True
         
         return False
@@ -124,7 +135,7 @@ class MessagePoller:
             if triggered:
                 print(f"🚨 Feed2 incident triggered!")
             else:
-                print(f"📊 Feed2 recorded only")
+                print(f"📊 Feed2 processed")
         
         else:
             print(f"⚠️ Unknown content type: {content_type}")
