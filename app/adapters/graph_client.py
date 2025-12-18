@@ -59,7 +59,7 @@ class GraphClient:
         team_id: str,
         channel_id: str,
         since: Optional[str] = None,
-        top: int = 1  # 최근 1개만
+        top: int = 10 # 최근 10개만
     ) -> List[Dict[str, Any]]:
         """
         채널 메시지 조회

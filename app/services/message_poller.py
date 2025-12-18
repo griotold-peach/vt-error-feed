@@ -193,6 +193,13 @@ class MessagePoller:
         self.running = True
         print("=" * 80)
         print("🚀 Starting message poller...")
+        
+        # ✅ 서버 시작 시각 기록 (첫 polling 스킵)
+        now = datetime.now(timezone.utc).isoformat()
+        self.last_check[TEAMS_FEED1_CHANNEL_ID] = now
+        self.last_check[TEAMS_FEED2_CHANNEL_ID] = now
+        
+        print(f"📍 Starting from: {now}")
         print(f"📍 Team ID: {TEAMS_TEAM_ID}")
         print(f"📍 Feed1: {TEAMS_FEED1_CHANNEL_ID}")
         print(f"📍 Feed2: {TEAMS_FEED2_CHANNEL_ID}")
