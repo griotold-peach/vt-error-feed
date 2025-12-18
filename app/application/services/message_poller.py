@@ -81,20 +81,21 @@ class MessagePoller:
         
         # Webhook 메시지만 처리
         if not self.parser.is_webhook_message(message):
-            logger.debug(f"⏭️ Skipping user message: {msg_id}")
+            # logger.debug → 삭제 (너무 많음)
             return
         
         # Card 메시지 체크
         if not self.parser.is_card_message(message):
-            logger.debug(f"⏭️ Skipping webhook message without card: {msg_id}")
+            # logger.debug → 삭제 (너무 많음)
             return
         
-        logger.info(f"🔍 Found webhook message with Card: {msg_id}")
+        # ✅ print로 변경
+        print(f"🔍 Found webhook message with Card: {msg_id}")
         
         # Card 파싱
         card = self.parser.parse_card(message)
         if not card:
-            logger.warning(f"⚠️ Failed to parse card: {msg_id}")
+            print(f"⚠️ Failed to parse card: {msg_id}")
             return
         
         # Feed별 처리
@@ -115,24 +116,27 @@ class MessagePoller:
         """
         self.running = True
         
-        logger.info("=" * 80)
-        logger.info("🚀 Starting message poller...")
+        # ✅ print로 변경
+        print("=" * 80)
+        print("🚀 Starting message poller...")
         
         # 서버 시작 시각 기록 (첫 polling 스킵)
         now = datetime.now(timezone.utc).isoformat()
         self.last_check[TEAMS_FEED1_CHANNEL_ID] = now
         self.last_check[TEAMS_FEED2_CHANNEL_ID] = now
         
-        logger.info(f"📍 Starting from: {now}")
-        logger.info(f"📍 Team ID: {TEAMS_TEAM_ID}")
-        logger.info(f"📍 Feed1: {TEAMS_FEED1_CHANNEL_ID}")
-        logger.info(f"📍 Feed2: {TEAMS_FEED2_CHANNEL_ID}")
-        logger.info(f"📍 Poll interval: {poll_interval}s")
-        logger.info("=" * 80)
+        # ✅ print로 변경
+        print(f"📍 Starting from: {now}")
+        print(f"📍 Team ID: {TEAMS_TEAM_ID}")
+        print(f"📍 Feed1: {TEAMS_FEED1_CHANNEL_ID}")
+        print(f"📍 Feed2: {TEAMS_FEED2_CHANNEL_ID}")
+        print(f"📍 Poll interval: {poll_interval}s")
+        print("=" * 80)
         
         while self.running:
             try:
-                logger.debug(f"⏰ Polling at {datetime.now().isoformat()}")
+                # ✅ print로 변경 (logger.debug → print)
+                print(f"\n⏰ Polling at {datetime.now().isoformat()}")
                 
                 # Feed1 polling
                 await self.poll_channel(TEAMS_FEED1_CHANNEL_ID, "feed1")
@@ -146,8 +150,9 @@ class MessagePoller:
             except Exception as e:
                 logger.error(f"Poller loop error: {e}", exc_info=True)
                 await asyncio.sleep(poll_interval)
-    
+
     def stop(self):
         """Polling 중지"""
         self.running = False
-        logger.info("Message poller stopped")
+        # ✅ print로 변경
+        print("👋 Message poller stopped")

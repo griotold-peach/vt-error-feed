@@ -44,35 +44,25 @@ class GraphClient:
         
         if "access_token" not in result:
             error = result.get("error_description", "Unknown error")
-            logger.error(f"Failed to acquire token: {error}")
+            logger.error(f"Failed to acquire token: {error}")  # ← 에러는 logger 유지
             raise Exception(f"Token acquisition failed: {error}")
         
         self._token = result["access_token"]
         # 토큰 만료 시간 (55분 후로 설정 - 실제는 60분)
         self._token_expires_at = datetime.now() + timedelta(minutes=55)
         
-        logger.info("Successfully acquired Graph API token")
+        # ✅ print로 변경
+        print("🔑 Successfully acquired Graph API token")
         return self._token
-    
+
     async def get_channel_messages(
         self,
         team_id: str,
         channel_id: str,
         since: Optional[str] = None,
-        top: int = 10 # 최근 10개만
+        top: int = 10
     ) -> List[Dict[str, Any]]:
-        """
-        채널 메시지 조회
-        
-        Args:
-            team_id: Teams 팀 ID
-            channel_id: 채널 ID
-            since: 이 시간 이후 메시지만 (클라이언트에서 필터링)
-            top: 가져올 메시지 수 (기본 50)
-        
-        Returns:
-            메시지 리스트
-        """
+        """채널 메시지 조회"""
         token = await self.get_access_token()
         
         url = f"https://graph.microsoft.com/v1.0/teams/{team_id}/channels/{channel_id}/messages"
@@ -82,7 +72,6 @@ class GraphClient:
             "Content-Type": "application/json"
         }
         
-        # $filter 대신 $top 사용 (최근 N개)
         params = {"$top": top}
         
         try:
@@ -90,7 +79,7 @@ class GraphClient:
                 async with session.get(url, headers=headers, params=params) as resp:
                     if resp.status != 200:
                         text = await resp.text()
-                        logger.error(f"Graph API error: {resp.status} - {text}")
+                        logger.error(f"Graph API error: {resp.status} - {text}")  # ← 에러는 logger 유지
                         return []
                     
                     data = await resp.json()
@@ -105,9 +94,11 @@ class GraphClient:
                                 filtered.append(msg)
                         messages = filtered
                     
-                    logger.info(f"Retrieved {len(messages)} messages from {channel_id}")
+                    # ✅ print로 변경 (메시지 있을 때만)
+                    if messages:
+                        print(f"📬 Retrieved {len(messages)} messages")
                     return messages
         
         except Exception as e:
-            logger.error(f"Error fetching messages: {e}", exc_info=True)
+            logger.error(f"Error fetching messages: {e}", exc_info=True)  # ← 에러는 logger 유지
             return []
