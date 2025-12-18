@@ -5,7 +5,7 @@ import logging
 
 from pydantic import ValidationError
 
-from app.infrastructure.notifier import post_to_forward_channel
+from app.adapters.teams_notifier import TeamsNotifier
 from app.adapters.messagecard import VTWebhookMessage
 from app.domain.events import VTErrorEvent
 from .forwarding import should_forward
@@ -13,6 +13,7 @@ from .incident import handle_incident
 
 logger = logging.getLogger(__name__)
 
+_notifier = TeamsNotifier()
 
 async def handle_raw_alert(payload: Dict[str, Any]) -> bool:
     """
@@ -38,7 +39,7 @@ async def handle_raw_alert(payload: Dict[str, Any]) -> bool:
     # ------ (1) 일반 에러 피드 포워딩 (개선사항 1) ------
     forwarded = False
     if should_forward(event):
-        await post_to_forward_channel(payload)
+        await _notifier.send_to_forward_channel(payload)
         forwarded = True
 
     # ------ (2) 장애 기준 체크 (개선사항 2) ------

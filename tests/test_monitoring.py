@@ -23,28 +23,34 @@ def reset_anomaly_state():
 
 # --- 공용 fixture: notifier monkeypatch ------------------------------------
 
-
 @pytest.fixture
 def fake_notifiers(monkeypatch):
     """
-    monitoring 이 내부에서 호출하는 post_to_incident_channel
-    을 가짜 함수로 바꿔서 실제 Teams 호출을 막고, 몇 번 불렸는지만 기록한다.
+    monitoring이 내부에서 사용하는 _notifier를 Mock으로 교체
     """
+    from unittest.mock import AsyncMock, MagicMock
+    
     incident_calls: List[Dict[str, Any]] = []
 
-    async def fake_incident(card: Dict[str, Any]) -> None:
+    async def fake_incident(card: Dict[str, Any]) -> bool:
         incident_calls.append(card)
+        return True
 
+    # Mock TeamsNotifier 인스턴스 생성
+    mock_notifier = MagicMock()
+    mock_notifier.send_to_incident_channel = AsyncMock(side_effect=fake_incident)
+    
+    # monitoring 모듈의 _notifier를 Mock으로 교체
     monkeypatch.setattr(
-        "app.services.monitoring.post_to_incident_channel",
-        fake_incident,
+        "app.services.monitoring._notifier",
+        mock_notifier,
         raising=True,
     )
-
+    
     return {
         "incident_calls": incident_calls,
+        "mock_notifier": mock_notifier,
     }
-
 
 # --- 테스트용 payload helpers ---------------------------------------------
 

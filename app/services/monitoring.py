@@ -9,9 +9,11 @@ from pydantic import ValidationError
 from app.adapters.messagecard import VTWebhookMessage
 from app.domain.events import MonitoringEvent
 from app.domain.anomaly import IncidentType, record_event
-from app.infrastructure.notifier import post_to_incident_channel
+from app.adapters.teams_notifier import TeamsNotifier
 
 logger = logging.getLogger(__name__)
+
+_notifier = TeamsNotifier()
 
 
 def _classify_incident_type(event: MonitoringEvent) -> IncidentType | None:
@@ -81,7 +83,7 @@ async def handle_monitoring_alert(payload: Dict[str, Any]) -> bool:
         return False
     
     # 5) 장애 채널로 원본 payload 전송
-    await post_to_incident_channel(payload)
+    await _notifier.send_to_incident_channel(payload)
     logger.info(
         "Monitoring incident triggered: type=%s, time=%s",
         incident_type.name,

@@ -4,11 +4,12 @@ import logging
 from typing import Any, Dict
 
 from app.domain.anomaly import IncidentType, record_event
-from app.infrastructure.notifier import post_to_incident_channel
+from app.adapters.teams_notifier import TeamsNotifier
 from app.domain.events import VTErrorEvent
 
 logger = logging.getLogger(__name__)
 
+_notifier = TeamsNotifier()
 
 def classify_incident_from_vt(event: VTErrorEvent) -> IncidentType | None:
     """
@@ -34,7 +35,7 @@ async def handle_incident(event: VTErrorEvent, raw_payload: Dict[str, Any]) -> N
     if not is_incident:
         return
 
-    await post_to_incident_channel(raw_payload)
+    await _notifier.send_to_incident_channel(raw_payload)
     logger.info(
         "Sent incident alert to incident channel. type=%s, project=%s",
         incident_type.name,
