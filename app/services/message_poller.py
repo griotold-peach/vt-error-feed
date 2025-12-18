@@ -54,76 +54,33 @@ class MessagePoller:
         print(f"📨 Processing Feed1 message: {message.get('id')}")
         
         attachments = message.get("attachments", [])
-        
         if not attachments:
             print("⚠️ No attachments")
             return
         
-        # 첫 번째 attachment
         attachment = attachments[0]
         content_type = attachment.get("contentType", "")
         
-        # O365 Connector Card 파싱
         if "o365connector" in content_type.lower():
             import json
             
-            # content는 JSON 문자열
+            # O365 Card 파싱
             content_str = attachment.get("content", "{}")
             try:
-                card = json.loads(content_str)
+                card = json.loads(content_str)  # ← 이미 VTWebhookMessage 포맷!
             except:
                 print("⚠️ Failed to parse card content")
                 return
             
-            # 디버깅: 전체 구조 출력
-            print("=" * 80)
-            print("🔍 O365 Connector Card:")
-            print(json.dumps(card, indent=2, ensure_ascii=False))
-            print("=" * 80)
+            # 디버깅 출력 (선택)
+            print(f"📌 Title: {card.get('title')}")
             
-            # 타이틀 확인
-            title = card.get("title", "")
-            print(f"📌 Title: {title}")
+            forwarded = await handle_raw_alert(card)
             
-            # sections → facts 추출
-            sections = card.get("sections", [])
-            if sections:
-                facts = sections[0].get("facts", [])
-                
-                description = ""
-                time = ""
-                
-                for fact in facts:
-                    name = fact.get("name", "")
-                    value = fact.get("value", "")
-                    
-                    # HTML 태그 제거
-                    import re
-                    clean_value = re.sub(r'<[^>]+>', '', value)
-                    
-                    if name == "Description":
-                        description = clean_value
-                    elif name == "Time":
-                        time = clean_value
-                
-                print(f"📋 Description: {description}")
-                print(f"⏰ Time: {time}")
-            
-            # 기존 handler에 전달할 payload 구성
-            payload = {
-                "title": title,
-                "description": description,
-                "time": time,
-                "card": card,
-                "message_id": message.get("id"),
-                "timestamp": message.get("createdDateTime")
-            }
-            
-            # TODO: handler 함수에 맞게 수정 필요
-            # forwarded = await handle_raw_alert(payload)
-            # print(f"✅ Feed1 result: {'forwarded' if forwarded else 'dropped'}")
-            
-            print("✅ Feed1 parsed successfully (handler 연결 필요)")
+            if forwarded:
+                print(f"✅ Feed1 forwarded to VT Error Feed Prod")
+            else:
+                print(f"⏭️ Feed1 dropped (not critical)")
         
         else:
             print(f"⚠️ Unknown content type: {content_type}")
@@ -133,7 +90,6 @@ class MessagePoller:
         print(f"📨 Processing Feed2 message: {message.get('id')}")
         
         attachments = message.get("attachments", [])
-        
         if not attachments:
             print("⚠️ No attachments")
             return
@@ -143,7 +99,6 @@ class MessagePoller:
         
         if "o365connector" in content_type.lower():
             import json
-            import re
             
             content_str = attachment.get("content", "{}")
             try:
@@ -152,48 +107,24 @@ class MessagePoller:
                 print("⚠️ Failed to parse card content")
                 return
             
-            print("=" * 80)
-            print("🔍 O365 Connector Card:")
-            print(json.dumps(card, indent=2, ensure_ascii=False))
-            print("=" * 80)
+            print(f"📌 Title: {card.get('title')}")
             
-            title = card.get("title", "")
-            print(f"📌 Title: {title}")
-            
+            # ✅ 디버깅: Description 출력
             sections = card.get("sections", [])
             if sections:
                 facts = sections[0].get("facts", [])
-                
-                description = ""
-                time = ""
-                
                 for fact in facts:
-                    name = fact.get("name", "")
-                    value = fact.get("value", "")
-                    clean_value = re.sub(r'<[^>]+>', '', value)
-                    
-                    if name == "Description":
-                        description = clean_value
-                    elif name == "Time":
-                        time = clean_value
-                
-                print(f"📋 Description: {description}")
-                print(f"⏰ Time: {time}")
+                    if fact.get("name") == "Description":
+                        import re
+                        desc = re.sub(r'<[^>]+>', '', fact.get("value", ""))
+                        print(f"📋 Description: {desc}")
             
-            payload = {
-                "title": title,
-                "description": description,
-                "time": time,
-                "card": card,
-                "message_id": message.get("id"),
-                "timestamp": message.get("createdDateTime")
-            }
+            triggered = await handle_monitoring_alert(card)
             
-            # TODO: handler 함수에 맞게 수정 필요
-            # triggered = await handle_monitoring_alert(payload)
-            # print(f"✅ Feed2 result: {'incident_triggered' if triggered else 'recorded'}")
-            
-            print("✅ Feed2 parsed successfully (handler 연결 필요)")
+            if triggered:
+                print(f"🚨 Feed2 incident triggered!")
+            else:
+                print(f"📊 Feed2 recorded only")
         
         else:
             print(f"⚠️ Unknown content type: {content_type}")

@@ -1,11 +1,8 @@
-from fastapi import FastAPI, Request, HTTPException, Depends
+from fastapi import FastAPI
 from contextlib import asynccontextmanager
 import asyncio
 
-from app.services.handler import handle_raw_alert
-from app.services.monitoring import handle_monitoring_alert
 from app.domain.anomaly import reset_state
-from app.utils.security import verify_teams_hmac
 from app.adapters.graph_client import GraphClient
 from app.services.message_poller import MessagePoller
 
@@ -53,45 +50,15 @@ app = FastAPI(
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "poller_running": poller.running if poller else False}
-
-
-# 기존 레거시 엔드포인트 유지
-@app.post("/vt/webhook/live-api")
-async def vt_webhook_live_api(
-    request: Request,
-    _: bool = Depends(verify_teams_hmac)
-):
-    """
-    API-Video-Translator Prod 채널에서 수신 (레거시)
-    """
-    try:
-        payload = await request.json()
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid JSON body")
-
-    forwarded = await handle_raw_alert(payload)
-    return {"status": "forwarded" if forwarded else "dropped"}
-
-
-@app.post("/vt/webhook/monitoring")
-async def vt_webhook_monitoring(
-    request: Request,
-    _: bool = Depends(verify_teams_hmac)
-):
-    """
-    Feed2 (VT 실시간 모니터링 채널 [ PM, PO ]) 엔드포인트 (레거시)
-    """
-    try:
-        payload = await request.json()
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid JSON body")
-
-    triggered = await handle_monitoring_alert(payload)
-    return {"status": "incident_triggered" if triggered else "recorded"}
+    """헬스체크 엔드포인트"""
+    return {
+        "status": "ok",
+        "poller_running": poller.running if poller else False
+    }
 
 
 @app.post("/debug/reset")
 async def reset():
+    """장애 상태 리셋 (디버깅용)"""
     reset_state()
     return {"status": "reset"}
