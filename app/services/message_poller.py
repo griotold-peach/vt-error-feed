@@ -1,14 +1,16 @@
+# app/services/message_poller.py
 """
 채널 메시지 Polling 서비스
 """
 import asyncio
 from datetime import datetime, timezone
-from typing import Dict, Set
+from typing import Dict
 import logging
 
 from app.adapters.graph_client import GraphClient
-from app.services.handler import handle_raw_alert
-from app.services.monitoring import handle_monitoring_alert
+from app.services.message_parser import TeamsMessageParser
+from app.services.message_processor import MessageProcessor
+from app.services.duplicate_tracker import DuplicateTracker
 from app.config import (
     TEAMS_TEAM_ID,
     TEAMS_FEED1_CHANNEL_ID,
@@ -19,129 +21,38 @@ logger = logging.getLogger(__name__)
 
 
 class MessagePoller:
-    """채널 메시지 주기적 Polling"""
+    """
+    채널 메시지 주기적 Polling
     
-    def __init__(self, graph_client: GraphClient):
+    책임:
+    - 채널에서 새 메시지 조회
+    - Feed별로 적절한 processor에게 위임
+    - Polling 생명주기 관리
+    """
+    
+    def __init__(
+        self,
+        graph_client: GraphClient,
+        parser: TeamsMessageParser = None,
+        processor: MessageProcessor = None,
+        duplicate_tracker: DuplicateTracker = None
+    ):
         self.graph = graph_client
-        self.last_check: Dict[str, str] = {}  # {channel_id: last_datetime}
-        self.processed_ids: Set[str] = set()  # 중복 방지
+        self.parser = parser or TeamsMessageParser()
+        self.processor = processor or MessageProcessor()
+        self.tracker = duplicate_tracker or DuplicateTracker()
+        
+        self.last_check: Dict[str, str] = {}
         self.running = False
     
-    def is_card_message(self, message: dict) -> bool:
+    async def poll_channel(self, channel_id: str, feed_type: str):
         """
-        Card 첨부물이 있는지 확인
+        단일 채널 polling
         
-        Teams 메시지는 여러 종류의 첨부물을 가질 수 있음:
-        - text/html (일반 HTML)
-        - image/png (이미지)
-        - application/vnd.microsoft.card.adaptive (Adaptive Card)
-        - application/vnd.microsoft.teams.card.o365connector (O365 Card)
-        
-        현재는 O365 Connector Card만 체크 (실제 사용되는 타입)
+        Args:
+            channel_id: Teams 채널 ID
+            feed_type: "feed1" 또는 "feed2"
         """
-        attachments = message.get("attachments", [])
-        
-        for attachment in attachments:
-            content_type = attachment.get("contentType", "")
-            
-            # O365 Connector Card 체크
-            if "o365connector" in content_type.lower():
-                return True
-        
-        return False
-    
-    def is_webhook_message(self, message: dict) -> bool:
-        """Incoming Webhook 메시지 여부"""
-        from_data = message.get("from", {})
-        
-        # Webhook은 application으로 옴
-        if from_data.get("application"):
-            return True
-        
-        return False
-    
-    async def process_feed1_message(self, message: dict):
-        """Feed1 메시지 처리"""
-        print(f"📨 Processing Feed1 message: {message.get('id')}")
-        
-        attachments = message.get("attachments", [])
-        if not attachments:
-            print("⚠️ No attachments")
-            return
-        
-        attachment = attachments[0]
-        content_type = attachment.get("contentType", "")
-        
-        if "o365connector" in content_type.lower():
-            import json
-            
-            # O365 Card 파싱
-            content_str = attachment.get("content", "{}")
-            try:
-                card = json.loads(content_str)  # ← 이미 VTWebhookMessage 포맷!
-            except:
-                print("⚠️ Failed to parse card content")
-                return
-            
-            # 디버깅 출력 (선택)
-            print(f"📌 Title: {card.get('title')}")
-            
-            forwarded = await handle_raw_alert(card)
-            
-            if forwarded:
-                print(f"✅ Feed1 forwarded to VT Error Feed Prod")
-            else:
-                print(f"⏭️ Feed1 dropped (not critical)")
-        
-        else:
-            print(f"⚠️ Unknown content type: {content_type}")
-    
-    async def process_feed2_message(self, message: dict):
-        """Feed2 메시지 처리"""
-        print(f"📨 Processing Feed2 message: {message.get('id')}")
-        
-        attachments = message.get("attachments", [])
-        if not attachments:
-            print("⚠️ No attachments")
-            return
-        
-        attachment = attachments[0]
-        content_type = attachment.get("contentType", "")
-        
-        if "o365connector" in content_type.lower():
-            import json
-            
-            content_str = attachment.get("content", "{}")
-            try:
-                card = json.loads(content_str)
-            except:
-                print("⚠️ Failed to parse card content")
-                return
-            
-            print(f"📌 Title: {card.get('title')}")
-            
-            # ✅ 디버깅: Description 출력
-            sections = card.get("sections", [])
-            if sections:
-                facts = sections[0].get("facts", [])
-                for fact in facts:
-                    if fact.get("name") == "Description":
-                        import re
-                        desc = re.sub(r'<[^>]+>', '', fact.get("value", ""))
-                        print(f"📋 Description: {desc}")
-            
-            triggered = await handle_monitoring_alert(card)
-            
-            if triggered:
-                print(f"🚨 Feed2 incident triggered!")
-            else:
-                print(f"📊 Feed2 processed")
-        
-        else:
-            print(f"⚠️ Unknown content type: {content_type}")
-    
-    async def poll_channel(self, channel_id: str, channel_type: str):
-        """단일 채널 polling"""
         since = self.last_check.get(channel_id)
         
         try:
@@ -152,76 +63,76 @@ class MessagePoller:
             )
             
             for message in messages:
-                msg_id = message.get("id")
-                
-                # 중복 체크
-                if msg_id in self.processed_ids:
-                    continue
-                
-                # Webhook 메시지만 처리
-                if not self.is_webhook_message(message):
-                    print(f"⏭️ Skipping user message: {msg_id}")
-                    continue
-                
-                # Card 메시지 체크 (Adaptive 또는 O365 Connector)
-                if not self.is_card_message(message):  # ← 함수명 변경
-                    print(f"⏭️ Skipping webhook message without card: {msg_id}")
-                    continue
-                
-                print(f"🔍 Found webhook message with Card: {msg_id}")
-                
-                # 채널별 처리
-                if channel_type == "feed1":
-                    await self.process_feed1_message(message)
-                elif channel_type == "feed2":
-                    await self.process_feed2_message(message)
-                
-                # 처리 완료 기록
-                self.processed_ids.add(msg_id)
+                await self._process_single_message(message, feed_type)
             
             # 마지막 확인 시간 업데이트
             self.last_check[channel_id] = datetime.now(timezone.utc).isoformat()
             
         except Exception as e:
-            logger.error(f"Polling error for {channel_type}: {e}", exc_info=True)
+            logger.error(f"Polling error for {feed_type}: {e}", exc_info=True)
     
-    async def cleanup_processed_ids(self):
-        """processed_ids 정리 (메모리 관리)"""
-        while self.running:
-            await asyncio.sleep(3600)  # 1시간
-            
-            # 최근 1000개만 유지
-            if len(self.processed_ids) > 1000:
-                # 절반 삭제
-                to_remove = len(self.processed_ids) - 500
-                for _ in range(to_remove):
-                    self.processed_ids.pop()
-                
-                logger.info(f"Cleaned up processed_ids: {len(self.processed_ids)} remaining")
-    
-    async def start(self):
-        """Polling 시작"""
-        self.running = True
-        print("=" * 80)
-        print("🚀 Starting message poller...")
+    async def _process_single_message(self, message: dict, feed_type: str):
+        """단일 메시지 처리"""
+        msg_id = message.get("id")
         
-        # ✅ 서버 시작 시각 기록 (첫 polling 스킵)
+        # 중복 체크
+        if self.tracker.is_processed(msg_id):
+            return
+        
+        # Webhook 메시지만 처리
+        if not self.parser.is_webhook_message(message):
+            logger.debug(f"⏭️ Skipping user message: {msg_id}")
+            return
+        
+        # Card 메시지 체크
+        if not self.parser.is_card_message(message):
+            logger.debug(f"⏭️ Skipping webhook message without card: {msg_id}")
+            return
+        
+        logger.info(f"🔍 Found webhook message with Card: {msg_id}")
+        
+        # Card 파싱
+        card = self.parser.parse_card(message)
+        if not card:
+            logger.warning(f"⚠️ Failed to parse card: {msg_id}")
+            return
+        
+        # Feed별 처리
+        if feed_type == "feed1":
+            await self.processor.process_feed1(card)
+        elif feed_type == "feed2":
+            await self.processor.process_feed2(card)
+        
+        # 처리 완료 기록
+        self.tracker.mark_processed(msg_id)
+    
+    async def start(self, poll_interval: int = 10):
+        """
+        Polling 시작
+        
+        Args:
+            poll_interval: Polling 주기 (초)
+        """
+        self.running = True
+        
+        logger.info("=" * 80)
+        logger.info("🚀 Starting message poller...")
+        
+        # 서버 시작 시각 기록 (첫 polling 스킵)
         now = datetime.now(timezone.utc).isoformat()
         self.last_check[TEAMS_FEED1_CHANNEL_ID] = now
         self.last_check[TEAMS_FEED2_CHANNEL_ID] = now
         
-        print(f"📍 Starting from: {now}")
-        print(f"📍 Team ID: {TEAMS_TEAM_ID}")
-        print(f"📍 Feed1: {TEAMS_FEED1_CHANNEL_ID}")
-        print(f"📍 Feed2: {TEAMS_FEED2_CHANNEL_ID}")
-        print("=" * 80)
-        
-        # Cleanup task 시작
-        asyncio.create_task(self.cleanup_processed_ids())
+        logger.info(f"📍 Starting from: {now}")
+        logger.info(f"📍 Team ID: {TEAMS_TEAM_ID}")
+        logger.info(f"📍 Feed1: {TEAMS_FEED1_CHANNEL_ID}")
+        logger.info(f"📍 Feed2: {TEAMS_FEED2_CHANNEL_ID}")
+        logger.info(f"📍 Poll interval: {poll_interval}s")
+        logger.info("=" * 80)
         
         while self.running:
             try:
-                print(f"\n⏰ Polling at {datetime.now().isoformat()}")
+                logger.debug(f"⏰ Polling at {datetime.now().isoformat()}")
                 
                 # Feed1 polling
                 await self.poll_channel(TEAMS_FEED1_CHANNEL_ID, "feed1")
@@ -229,12 +140,12 @@ class MessagePoller:
                 # Feed2 polling
                 await self.poll_channel(TEAMS_FEED2_CHANNEL_ID, "feed2")
                 
-                # 10초 대기
-                await asyncio.sleep(10)
+                # 대기
+                await asyncio.sleep(poll_interval)
                 
             except Exception as e:
                 logger.error(f"Poller loop error: {e}", exc_info=True)
-                await asyncio.sleep(10)
+                await asyncio.sleep(poll_interval)
     
     def stop(self):
         """Polling 중지"""
