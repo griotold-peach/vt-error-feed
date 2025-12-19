@@ -23,18 +23,24 @@ pdm run test
 
 `.env` 파일에 다음 변수 설정 필요:
 
-| 변수명 | 설명 |
-|--------|------|
-| `TEAMS_FORWARD_WEBHOOK_URL` | 포워딩 채널 Webhook URL |
-| `TEAMS_INCIDENT_WEBHOOK_URL` | 장애 알림 채널 Webhook URL |
+```bash
+# Microsoft Graph API
+MICROSOFT_APP_ID=...
+MICROSOFT_APP_PASSWORD=...
+MICROSOFT_TENANT_ID=...
 
-## API 엔드포인트
+# Teams 설정
+TEAMS_TEAM_ID=...
+TEAMS_FEED1_CHANNEL_ID=...
+TEAMS_FEED2_CHANNEL_ID=...
 
-| 엔드포인트 | 설명 |
-|------------|------|
-| `GET /health` | 헬스 체크 |
-| `POST /vt/webhook/live-api` | Feed1 (API-Video-Translator) 처리 |
-| `POST /vt/webhook/monitoring` | Feed2 (VT 실시간 모니터링) 처리 |
+TEAMS_FORWARD_WEBHOOK_URL=...
+
+TEAMS_INCIDENT_WEBHOOK_URL=...
+
+# 환경
+ENV=production
+```
 
 ## 장애 기준
 
@@ -51,18 +57,34 @@ pdm run test
 ## 프로젝트 구조
 ```
 app/
-├── main.py                 # FastAPI 엔트리
-├── config.py               # 환경 변수
-├── adapters/               # 외부 포맷 변환
-├── domain/                 # 비즈니스 로직
-│   ├── incident_type.py    # 장애 유형 enum
-│   ├── incident_config.py  # 장애 기준 설정
-│   ├── anomaly.py          # 슬라이딩 윈도우
-│   └── events.py           # 도메인 모델
-├── services/               # 유즈케이스
-└── infrastructure/         # 외부 시스템 연동
+├── main.py                 # FastAPI 엔트리포인트
+├── config.py               # 환경 변수 설정
+├── container.py            # 의존성 조립 (DI Container)
+│
+├── adapters/               # 외부 시스템 연동
+│   ├── graph_client.py     # Microsoft Graph API 클라이언트
+│   ├── teams_notifier.py   # Teams Webhook 알림 전송
+│   └── messagecard.py      # Teams MessageCard 포맷 변환
+│
+├── application/            # 애플리케이션 계층
+│   ├── ports/              # 인터페이스 정의 (Protocol)
+│   │   └── notifier.py     # 알림 전송 포트
+│   └── services/           # 유스케이스 구현
+│       ├── handler.py      # Feed1 처리
+│       ├── monitoring.py   # Feed2 처리
+│       ├── incident.py     # 장애 감지
+│       ├── message_poller.py    # 메시지 폴링
+│       ├── message_processor.py # 메시지 처리
+│       └── ...
+│
+└── domain/                 # 도메인 계층
+    ├── incident_type.py    # 장애 유형 정의
+    ├── incident_config.py  # 장애 임계값 설정
+    ├── anomaly.py          # 슬라이딩 윈도우 로직
+    ├── events.py           # 도메인 모델
+    └── rules.py            # 포워딩 규칙
 
-tests/                      # 테스트
+tests/                      # 테스트 (149개 테스트 통과)
 scripts/                    # E2E 테스트 스크립트
 ```
 
