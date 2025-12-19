@@ -3,6 +3,9 @@
 메시지 중복 처리 방지
 """
 from typing import Set
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class DuplicateTracker:
@@ -28,8 +31,8 @@ class DuplicateTracker:
             to_remove = len(self.processed_ids) - self.cleanup_size
             for _ in range(to_remove):
                 self.processed_ids.pop()
-            
-            print(f"🧹 Cleaned up processed_ids: {len(self.processed_ids)} remaining")
+
+            logger.info(f"🧹 Cleaned up processed_ids: {len(self.processed_ids)} remaining")
     
     def clear(self):
         """모든 기록 초기화"""

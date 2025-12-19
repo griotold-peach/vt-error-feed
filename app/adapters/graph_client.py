@@ -50,9 +50,8 @@ class GraphClient:
         self._token = result["access_token"]
         # 토큰 만료 시간 (55분 후로 설정 - 실제는 60분)
         self._token_expires_at = datetime.now() + timedelta(minutes=55)
-        
-        # ✅ print로 변경
-        print("🔑 Successfully acquired Graph API token")
+
+        logger.info("🔑 Successfully acquired Graph API token")
         return self._token
 
     async def get_channel_messages(
@@ -93,10 +92,9 @@ class GraphClient:
                             if last_modified and last_modified > since:
                                 filtered.append(msg)
                         messages = filtered
-                    
-                    # ✅ print로 변경 (메시지 있을 때만)
+
                     if messages:
-                        print(f"📬 Retrieved {len(messages)} messages")
+                        logger.info(f"📬 Retrieved {len(messages)} messages")
                     return messages
         
         except Exception as e:

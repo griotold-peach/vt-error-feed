@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from typing import Any, Dict
+import logging
 
 from pydantic import ValidationError
 
@@ -10,6 +11,8 @@ from app.adapters.messagecard import VTWebhookMessage
 from app.domain.events import VTErrorEvent
 from .forwarding import should_forward
 from .incident import IncidentService
+
+logger = logging.getLogger(__name__)
 
 
 class AlertHandler:
@@ -50,7 +53,7 @@ class AlertHandler:
         try:
             msg = VTWebhookMessage.model_validate(payload)
         except ValidationError as exc:
-            print(f"⚠️ Invalid VT webhook payload: {exc}")
+            logger.warning(f"⚠️ Invalid VT webhook payload: {exc}")
             return False
 
         event = VTErrorEvent.from_message(msg)

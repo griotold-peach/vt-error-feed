@@ -2,10 +2,14 @@
 """
 의존성 조립 (Dependency Assembly)
 """
+import logging
+
 from app.adapters.teams_notifier import TeamsNotifier
 from app.application.services.handler import AlertHandler
 from app.application.services.monitoring import MonitoringHandler
 from app.application.services.incident import IncidentService
+
+logger = logging.getLogger(__name__)
 
 
 class ServiceContainer:
@@ -60,13 +64,13 @@ def get_container() -> ServiceContainer:
 def init_container() -> ServiceContainer:
     """
     ServiceContainer 초기화
-    
+
     애플리케이션 시작 시 명시적으로 호출합니다.
-    
+
     Returns:
         ServiceContainer 인스턴스
     """
     global _container
     _container = ServiceContainer()
-    print("✅ Service container initialized")
+    logger.info("✅ Service container initialized")
     return _container

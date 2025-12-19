@@ -141,7 +141,7 @@ def record_event(incident_type: IncidentType, timestamp: datetime) -> bool:
     if triggered:
         # 쿨다운 체크
         if _check_cooldown(incident_type, timestamp, config.cooldown):
-            print(f"✅ Incident triggered: {incident_type.name} ({reason})")
+            logger.info(f"✅ Incident triggered: {incident_type.name} ({reason})")
             logger.info(
                 "Incident triggered: type=%s, time=%s, reason=%s",
                 incident_type.name,
@@ -154,10 +154,10 @@ def record_event(incident_type: IncidentType, timestamp: datetime) -> bool:
             last = _last_alert_ts.get(incident_type)
             cooldown_minutes = int(config.cooldown.total_seconds() / 60)
             last_str = last.strftime("%H:%M:%S") if last else "N/A"
-            
-            print(f"⏸️ Threshold met but in cooldown: {incident_type.name} ({reason})")
-            print(f"   마지막 알림: {last_str}, 쿨다운: {cooldown_minutes}분")
-            
+
+            logger.info(f"⏸️ Threshold met but in cooldown: {incident_type.name} ({reason})")
+            logger.info(f"   마지막 알림: {last_str}, 쿨다운: {cooldown_minutes}분")
+
             logger.info(
                 "Incident cooldown: type=%s, reason=%s, last=%s, cooldown=%d",
                 incident_type.name,
@@ -168,8 +168,8 @@ def record_event(incident_type: IncidentType, timestamp: datetime) -> bool:
             return False
     else:
         # Threshold 미달
-        print(f"📊 Event recorded: {incident_type.name} ({reason}) - threshold 미달")
-        
+        logger.info(f"📊 Event recorded: {incident_type.name} ({reason}) - threshold 미달")
+
         logger.info(
             "Event recorded: type=%s, time=%s, reason=%s",
             incident_type.name,

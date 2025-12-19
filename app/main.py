@@ -2,11 +2,15 @@
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
 import asyncio
+import logging
 
+from app.logging_config import setup_logging
 from app.domain.anomaly import reset_state
 from app.adapters.graph_client import GraphClient
 from app.application.services.message_poller import MessagePoller
 from app.container import init_container, get_container
+
+logger = logging.getLogger(__name__)
 
 # Global poller instance
 poller: MessagePoller | None = None
@@ -17,13 +21,16 @@ async def lifespan(app: FastAPI):
     """앱 시작/종료 시 실행"""
     # Startup
     global poller
-    
-    print("=" * 80)
-    print("🚀 Starting VT Error Feed Filter Server")
-    print("=" * 80)
-    
+
+    # 0. 로깅 설정
+    setup_logging()
+
+    logger.info("=" * 80)
+    logger.info("🚀 Starting VT Error Feed Filter Server")
+    logger.info("=" * 80)
+
     # 1. 의존성 컨테이너 초기화
-    container = init_container()
+    init_container()
     
     # 2. Graph API 클라이언트 생성
     graph_client = GraphClient()
@@ -33,14 +40,14 @@ async def lifespan(app: FastAPI):
     asyncio.create_task(poller.start())
     
     yield
-    
+
     # Shutdown
     if poller:
         poller.stop()
-    
-    print("=" * 80)
-    print("👋 Shutting down VT Error Feed Filter Server")
-    print("=" * 80)
+
+    logger.info("=" * 80)
+    logger.info("👋 Shutting down VT Error Feed Filter Server")
+    logger.info("=" * 80)
 
 
 app = FastAPI(

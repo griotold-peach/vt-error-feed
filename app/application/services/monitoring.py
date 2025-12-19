@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from typing import Any, Dict
+import logging
 
 from pydantic import ValidationError
 
@@ -9,6 +10,8 @@ from app.application.ports.notifier import Notifier
 from app.adapters.messagecard import VTWebhookMessage
 from app.domain.events import VTErrorEvent
 from app.domain.anomaly import record_event
+
+logger = logging.getLogger(__name__)
 
 
 class MonitoringHandler:
@@ -32,7 +35,7 @@ class MonitoringHandler:
         try:
             msg = VTWebhookMessage.model_validate(payload)
         except ValidationError as exc:
-            print(f"⚠️ Invalid VT monitoring payload: {exc}")
+            logger.warning(f"⚠️ Invalid VT monitoring payload: {exc}")
             return False
         
         # ✅ MonitoringEvent로 변환

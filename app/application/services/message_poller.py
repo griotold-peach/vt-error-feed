@@ -89,13 +89,12 @@ class MessagePoller:
             # logger.debug → 삭제 (너무 많음)
             return
         
-        # ✅ print로 변경
-        print(f"🔍 Found webhook message with Card: {msg_id}")
+        logger.info(f"🔍 Found webhook message with Card: {msg_id}")
         
         # Card 파싱
         card = self.parser.parse_card(message)
         if not card:
-            print(f"⚠️ Failed to parse card: {msg_id}")
+            logger.warning(f"⚠️ Failed to parse card: {msg_id}")
             return
         
         # Feed별 처리
@@ -115,28 +114,25 @@ class MessagePoller:
             poll_interval: Polling 주기 (초)
         """
         self.running = True
-        
-        # ✅ print로 변경
-        print("=" * 80)
-        print("🚀 Starting message poller...")
-        
+
+        logger.info("=" * 80)
+        logger.info("🚀 Starting message poller...")
+
         # 서버 시작 시각 기록 (첫 polling 스킵)
         now = datetime.now(timezone.utc).isoformat()
         self.last_check[TEAMS_FEED1_CHANNEL_ID] = now
         self.last_check[TEAMS_FEED2_CHANNEL_ID] = now
-        
-        # ✅ print로 변경
-        print(f"📍 Starting from: {now}")
-        print(f"📍 Team ID: {TEAMS_TEAM_ID}")
-        print(f"📍 Feed1: {TEAMS_FEED1_CHANNEL_ID}")
-        print(f"📍 Feed2: {TEAMS_FEED2_CHANNEL_ID}")
-        print(f"📍 Poll interval: {poll_interval}s")
-        print("=" * 80)
+
+        logger.info(f"📍 Starting from: {now}")
+        logger.info(f"📍 Team ID: {TEAMS_TEAM_ID}")
+        logger.info(f"📍 Feed1: {TEAMS_FEED1_CHANNEL_ID}")
+        logger.info(f"📍 Feed2: {TEAMS_FEED2_CHANNEL_ID}")
+        logger.info(f"📍 Poll interval: {poll_interval}s")
+        logger.info("=" * 80)
         
         while self.running:
             try:
-                # ✅ print로 변경 (logger.debug → print)
-                print(f"\n⏰ Polling at {datetime.now().isoformat()}")
+                logger.info(f"\n⏰ Polling at {datetime.now().isoformat()}")
                 
                 # Feed1 polling
                 await self.poll_channel(TEAMS_FEED1_CHANNEL_ID, "feed1")
@@ -154,5 +150,4 @@ class MessagePoller:
     def stop(self):
         """Polling 중지"""
         self.running = False
-        # ✅ print로 변경
-        print("👋 Message poller stopped")
+        logger.info("👋 Message poller stopped")

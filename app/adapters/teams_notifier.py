@@ -4,8 +4,11 @@ Teams Webhook 알림 전송 어댑터
 """
 from typing import Dict, Any
 import httpx
+import logging
 
 from app.config import TEAMS_FORWARD_WEBHOOK_URL, TEAMS_INCIDENT_WEBHOOK_URL
+
+logger = logging.getLogger(__name__)
 
 
 class TeamsNotifier:
@@ -65,7 +68,7 @@ class TeamsNotifier:
             전송 성공 여부
         """
         if not webhook_url:
-            print(f"❌ {log_prefix} webhook url is not configured. Skip sending.")
+            logger.warning(f"❌ {log_prefix} webhook url is not configured. Skip sending.")
             return False
         
         async with httpx.AsyncClient(
@@ -76,17 +79,17 @@ class TeamsNotifier:
                 resp = await client.post(webhook_url, json=card)
                 
                 if resp.is_error:
-                    print(
+                    logger.error(
                         f"❌ {log_prefix} response error. "
                         f"status={resp.status_code} body={resp.text[:200]}"
                     )
                     return False
-                
-                print(f"✅ {log_prefix} message successfully posted to Teams.")
+
+                logger.info(f"✅ {log_prefix} message successfully posted to Teams.")
                 return True
-                
+
             except httpx.RequestError as exc:
-                print(f"❌ {log_prefix} request error: {exc}")
+                logger.error(f"❌ {log_prefix} request error: {exc}", exc_info=True)
                 return False
 
 
