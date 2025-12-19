@@ -20,6 +20,18 @@ class MessageProcessor:
             포워딩 여부
         """
         print(f"📨 Processing Feed1: {card.title}")
+
+        # Error Detail 출력 추가
+        error_detail = card.get_fact("Error Detail")
+        if error_detail:
+            error_clean = re.sub(r'<[^>]+>', '', error_detail)
+            print(f"📋 Error Detail: {error_clean}")
+
+        # Error Message 출력 (있으면)
+        error_message = card.get_fact("Error Message")
+        if error_message:
+            error_clean = re.sub(r'<[^>]+>', '', error_message)
+            print(f"📋 Error Message: {error_clean}")
         
         # 컨테이너에서 AlertHandler 가져오기
         container = get_container()
